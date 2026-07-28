@@ -108,40 +108,60 @@ export function ReaderView({
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
 
-  function handleMouseUp() {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
-      return;
-    }
-    const text = selection.toString().trim();
-    if (!text) return;
+  // Touch-based selection (long-press + drag handles) never fires a
+  // `mouseup` on iOS/Android — `selectionchange` is the only event both
+  // input types reliably emit, so it drives the toolbar on every device.
+  useEffect(() => {
+    let timeoutId: number;
 
-    const range = selection.getRangeAt(0);
-    let node: Node | null = range.commonAncestorContainer;
-    let paragraphEl: HTMLElement | null = null;
-    while (node) {
-      if (node instanceof HTMLElement && node.dataset.paragraphId) {
-        paragraphEl = node;
-        break;
+    function trySetPendingFromSelection() {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+        return;
       }
-      node = node.parentNode;
+      const text = selection.toString().trim();
+      if (!text) return;
+
+      const range = selection.getRangeAt(0);
+      let node: Node | null = range.commonAncestorContainer;
+      let paragraphEl: HTMLElement | null = null;
+      while (node) {
+        if (node instanceof HTMLElement && node.dataset.paragraphId) {
+          paragraphEl = node;
+          break;
+        }
+        node = node.parentNode;
+      }
+      if (!paragraphEl || !articleRef.current?.contains(paragraphEl)) return;
+
+      const start = getTextOffset(paragraphEl, range.startContainer, range.startOffset);
+      const end = getTextOffset(paragraphEl, range.endContainer, range.endOffset);
+      if (end <= start) return;
+
+      const rect = range.getBoundingClientRect();
+      setPending({
+        paragraphId: paragraphEl.dataset.paragraphId!,
+        start,
+        end,
+        text,
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+      });
     }
-    if (!paragraphEl) return;
 
-    const start = getTextOffset(paragraphEl, range.startContainer, range.startOffset);
-    const end = getTextOffset(paragraphEl, range.endContainer, range.endOffset);
-    if (end <= start) return;
+    function onSelectionChange() {
+      window.clearTimeout(timeoutId);
+      // Debounced so it fires once a touch selection settles instead of
+      // on every intermediate handle-drag position.
+      timeoutId = window.setTimeout(trySetPendingFromSelection, 250);
+    }
 
-    const rect = range.getBoundingClientRect();
-    setPending({
-      paragraphId: paragraphEl.dataset.paragraphId!,
-      start,
-      end,
-      text,
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-    });
-  }
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   function commitAnnotation(note?: string) {
     if (!pending) return;
@@ -233,7 +253,6 @@ export function ReaderView({
       <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
         <article
           ref={articleRef}
-          onMouseUp={handleMouseUp}
           className="select-text rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.85] text-[oklch(0.88_0.015_75)] sm:p-12"
         >
           <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
