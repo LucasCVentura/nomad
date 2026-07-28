@@ -54,7 +54,8 @@ export default function NovoConteudoPage() {
       setStep("review");
     } catch (err) {
       console.error(err);
-      setError("Não consegui processar esse PDF. Tente outro arquivo.");
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`Não consegui processar esse PDF (${detail}). Tente outro arquivo.`);
       setStep("form");
     }
   }

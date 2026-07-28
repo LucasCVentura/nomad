@@ -17,11 +17,21 @@ function transformPoint(m: Matrix, x: number, y: number): [number, number] {
   return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 }
 
+// Yields to the browser's event loop. Mobile Safari can flag a script as
+// unresponsive and kill it if the main thread never comes up for air —
+// forms and other image-heavy PDFs are exactly the case that can run long.
+function yieldToMain() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 type TextLine = { y: number; text: string; fontSize: number };
 type TextBlock = { y: number; text: string; fontSize: number };
 type ImageBlock = { y: number; dataUrl: string };
 
-const MIN_IMAGE_SIZE = 32;
+const MIN_IMAGE_SIZE = 48;
+const MAX_IMAGES_PER_PAGE = 25;
+const MAX_IMAGES_PER_DOC = 60;
+const RENDER_SCALE = 1.5;
 
 async function extractTextLines(page: any, viewport: any): Promise<TextLine[]> {
   const textContent = await page.getTextContent();
@@ -86,11 +96,16 @@ function groupLinesIntoBlocks(lines: TextLine[]): TextBlock[] {
   }));
 }
 
+// Some PDFs (scanned pages, forms with checkbox/underline glyphs drawn as
+// tiny repeated images) can trigger hundreds of paintImageXObject calls.
+// Extracting every single one is what was blowing up memory on mobile —
+// this caps how many we bother cropping, per page and overall.
 async function extractImageBlocks(
   page: any,
   viewport: any,
   pageCanvas: HTMLCanvasElement,
-  pdfjsLib: typeof import("pdfjs-dist")
+  pdfjsLib: typeof import("pdfjs-dist"),
+  remainingBudget: number
 ): Promise<ImageBlock[]> {
   const opList = await page.getOperatorList();
   const { OPS } = pdfjsLib;
@@ -100,6 +115,8 @@ async function extractImageBlocks(
   const images: ImageBlock[] = [];
 
   for (let i = 0; i < opList.fnArray.length; i++) {
+    if (images.length >= MAX_IMAGES_PER_PAGE || images.length >= remainingBudget) break;
+
     const fn = opList.fnArray[i];
 
     if (fn === OPS.save || fn === OPS.paintFormXObjectBegin) {
@@ -129,14 +146,21 @@ async function extractImageBlocks(
 
       if (width < MIN_IMAGE_SIZE || height < MIN_IMAGE_SIZE) continue;
 
-      const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = width;
-      cropCanvas.height = height;
-      const cropCtx = cropCanvas.getContext("2d");
-      if (!cropCtx) continue;
-      cropCtx.drawImage(pageCanvas, left, top, width, height, 0, 0, width, height);
+      try {
+        const cropCanvas = document.createElement("canvas");
+        cropCanvas.width = width;
+        cropCanvas.height = height;
+        const cropCtx = cropCanvas.getContext("2d");
+        if (!cropCtx) continue;
+        cropCtx.drawImage(pageCanvas, left, top, width, height, 0, 0, width, height);
 
-      images.push({ y: top, dataUrl: cropCanvas.toDataURL("image/png") });
+        images.push({ y: top, dataUrl: cropCanvas.toDataURL("image/png") });
+
+        cropCanvas.width = 0;
+        cropCanvas.height = 0;
+      } catch (err) {
+        console.warn("Skipping one image block (crop failed):", err);
+      }
     }
   }
 
@@ -160,25 +184,49 @@ export async function convertPdfToBlocks(
 
   const perPage: { textBlocks: TextBlock[]; imageBlocks: ImageBlock[] }[] = [];
   const allFontSizes: number[] = [];
+  let imagesSoFar = 0;
 
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
-    const page = await doc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 2 });
+    try {
+      const page = await doc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        perPage.push({ textBlocks: [], imageBlocks: [] });
+        continue;
+      }
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
-    const lines = await extractTextLines(page, viewport);
-    const textBlocks = groupLinesIntoBlocks(lines);
-    const imageBlocks = await extractImageBlocks(page, viewport, canvas, pdfjsLib);
+      const lines = await extractTextLines(page, viewport);
+      const textBlocks = groupLinesIntoBlocks(lines);
 
-    perPage.push({ textBlocks, imageBlocks });
-    allFontSizes.push(...textBlocks.map((b) => b.fontSize));
+      let imageBlocks: ImageBlock[] = [];
+      const budget = MAX_IMAGES_PER_DOC - imagesSoFar;
+      if (budget > 0) {
+        try {
+          imageBlocks = await extractImageBlocks(page, viewport, canvas, pdfjsLib, budget);
+          imagesSoFar += imageBlocks.length;
+        } catch (err) {
+          console.warn(`Skipping images on page ${pageNum} (extraction failed):`, err);
+        }
+      }
+
+      perPage.push({ textBlocks, imageBlocks });
+      allFontSizes.push(...textBlocks.map((b) => b.fontSize));
+
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch (err) {
+      console.warn(`Skipping page ${pageNum} (it threw during processing):`, err);
+      perPage.push({ textBlocks: [], imageBlocks: [] });
+    }
+
     onProgress?.(pageNum, doc.numPages);
+    await yieldToMain();
   }
 
   const sortedSizes = [...allFontSizes].sort((a, b) => a - b);
