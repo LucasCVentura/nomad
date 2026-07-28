@@ -24,6 +24,11 @@ function yieldToMain() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function errMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 type TextLine = { y: number; text: string; fontSize: number };
 type TextBlock = { y: number; text: string; fontSize: number };
 type ImageBlock = { y: number; dataUrl: string };
@@ -184,55 +189,76 @@ export async function convertPdfToBlocks(
 
   const perPage: { textBlocks: TextBlock[]; imageBlocks: ImageBlock[] }[] = [];
   const allFontSizes: number[] = [];
+  const diagnostics: string[] = [];
   let imagesSoFar = 0;
 
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    let textBlocks: TextBlock[] = [];
+    let imageBlocks: ImageBlock[] = [];
+
     try {
       const page = await doc.getPage(pageNum);
       const viewport = page.getViewport({ scale: RENDER_SCALE });
+
+      // Text extraction doesn't depend on the canvas render succeeding, so
+      // it's tried independently — a render failure shouldn't cost us text
+      // we could otherwise have gotten.
+      try {
+        const lines = await extractTextLines(page, viewport);
+        textBlocks = groupLinesIntoBlocks(lines);
+      } catch (err) {
+        diagnostics.push(`p${pageNum} texto: ${errMessage(err)}`);
+      }
 
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        perPage.push({ textBlocks: [], imageBlocks: [] });
-        continue;
-      }
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-
-      const lines = await extractTextLines(page, viewport);
-      const textBlocks = groupLinesIntoBlocks(lines);
-
-      let imageBlocks: ImageBlock[] = [];
-      const budget = MAX_IMAGES_PER_DOC - imagesSoFar;
-      if (budget > 0) {
+        diagnostics.push(`p${pageNum}: canvas 2d context indisponível`);
+      } else {
+        let renderOk = false;
         try {
-          imageBlocks = await extractImageBlocks(page, viewport, canvas, pdfjsLib, budget);
-          imagesSoFar += imageBlocks.length;
+          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+          renderOk = true;
         } catch (err) {
-          console.warn(`Skipping images on page ${pageNum} (extraction failed):`, err);
+          diagnostics.push(`p${pageNum} render: ${errMessage(err)}`);
         }
+
+        if (renderOk) {
+          const budget = MAX_IMAGES_PER_DOC - imagesSoFar;
+          if (budget > 0) {
+            try {
+              imageBlocks = await extractImageBlocks(page, viewport, canvas, pdfjsLib, budget);
+              imagesSoFar += imageBlocks.length;
+            } catch (err) {
+              diagnostics.push(`p${pageNum} imagens: ${errMessage(err)}`);
+            }
+          }
+
+          // Scanned/photographed pages (or ones where "text" is actually
+          // vector outlines) have no real text layer and no
+          // paintImageXObject calls we can detect. Fall back to the
+          // already rendered page itself so the page isn't dropped.
+          if (textBlocks.length === 0 && imageBlocks.length === 0) {
+            try {
+              imageBlocks = [{ y: 0, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }];
+              imagesSoFar += 1;
+            } catch (err) {
+              diagnostics.push(`p${pageNum} captura de página: ${errMessage(err)}`);
+            }
+          }
+        }
+
+        canvas.width = 0;
+        canvas.height = 0;
       }
-
-      // Scanned/photographed pages (or ones where "text" is actually vector
-      // outlines) have no real text layer and no paintImageXObject calls we
-      // can detect — nothing gets extracted. Fall back to the already
-      // rendered page itself so the page isn't silently dropped.
-      if (textBlocks.length === 0 && imageBlocks.length === 0) {
-        imageBlocks = [{ y: 0, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }];
-        imagesSoFar += 1;
-      }
-
-      perPage.push({ textBlocks, imageBlocks });
-      allFontSizes.push(...textBlocks.map((b) => b.fontSize));
-
-      canvas.width = 0;
-      canvas.height = 0;
     } catch (err) {
-      console.warn(`Skipping page ${pageNum} (it threw during processing):`, err);
-      perPage.push({ textBlocks: [], imageBlocks: [] });
+      diagnostics.push(`p${pageNum}: ${errMessage(err)}`);
     }
+
+    perPage.push({ textBlocks, imageBlocks });
+    allFontSizes.push(...textBlocks.map((b) => b.fontSize));
 
     onProgress?.(pageNum, doc.numPages);
     await yieldToMain();
@@ -266,6 +292,11 @@ export async function convertPdfToBlocks(
         text: item.text,
       });
     }
+  }
+
+  if (blocks.length === 0) {
+    const detail = diagnostics.length > 0 ? diagnostics.slice(0, 3).join(" | ") : "sem detalhes";
+    throw new Error(`nada extraído de ${doc.numPages} página(s) — ${detail}`);
   }
 
   return blocks;

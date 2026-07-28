@@ -43,13 +43,6 @@ export default function NovoConteudoPage() {
       const result = await convertPdfToBlocks(file, (page, total) =>
         setProgress({ page, total })
       );
-      if (result.length === 0) {
-        setError(
-          "Não consegui extrair nada desse PDF. Tente outro arquivo ou avise que precisamos investigar."
-        );
-        setStep("form");
-        return;
-      }
       setBlocks(result);
       setStep("review");
     } catch (err) {
