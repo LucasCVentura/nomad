@@ -1,5 +1,37 @@
 import type { ContentBlock } from "@/lib/supabase/types";
 
+// pdfjs-dist 6.x calls these very-new TC39 Map methods internally on the
+// main thread too (not just inside the worker, which gets the same
+// polyfill prepended to public/pdfjs/pdf.worker.min.mjs). Safari doesn't
+// implement them yet as of many current iOS versions — without this,
+// conversion fails on iPhone/iPad while working fine on Chrome.
+function polyfillMapUpsert() {
+  const proto = Map.prototype as unknown as Record<string, unknown>;
+  if (typeof proto.getOrInsertComputed !== "function") {
+    Object.defineProperty(proto, "getOrInsertComputed", {
+      value: function (this: Map<unknown, unknown>, key: unknown, callback: (key: unknown) => unknown) {
+        if (this.has(key)) return this.get(key);
+        const value = callback(key);
+        this.set(key, value);
+        return value;
+      },
+      writable: true,
+      configurable: true,
+    });
+  }
+  if (typeof proto.getOrInsert !== "function") {
+    Object.defineProperty(proto, "getOrInsert", {
+      value: function (this: Map<unknown, unknown>, key: unknown, defaultValue: unknown) {
+        if (this.has(key)) return this.get(key);
+        this.set(key, defaultValue);
+        return defaultValue;
+      },
+      writable: true,
+      configurable: true,
+    });
+  }
+}
+
 type Matrix = [number, number, number, number, number, number];
 
 function multiplyMatrix(a: Matrix, b: Matrix): Matrix {
@@ -182,6 +214,8 @@ export async function convertPdfToBlocks(
   if (file.size === 0) {
     throw new Error(`arquivo vazio — ${ICLOUD_HINT}`);
   }
+
+  polyfillMapUpsert();
 
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";

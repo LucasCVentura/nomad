@@ -1,3 +1,31 @@
+/* --- Polyfill injected by us: Map.prototype.getOrInsertComputed / getOrInsert ---
+ * pdfjs-dist 6.x uses these very-new TC39 Map methods internally. Safari
+ * (as of many current iOS versions) doesn't implement them yet, which made
+ * PDF conversion fail silently on iPhone while working fine on Chrome.
+ * Remove this block only once Safari ships native support and it's safe
+ * everywhere we need to run. Re-add it if pdf.worker.min.mjs is ever
+ * re-copied from a newer node_modules/pdfjs-dist build. */
+if (typeof Map.prototype.getOrInsertComputed !== "function") {
+  Object.defineProperty(Map.prototype, "getOrInsertComputed", {
+    value: function (key, callback) {
+      if (this.has(key)) return this.get(key);
+      const value = callback(key);
+      this.set(key, value);
+      return value;
+    },
+    writable: true, configurable: true,
+  });
+}
+if (typeof Map.prototype.getOrInsert !== "function") {
+  Object.defineProperty(Map.prototype, "getOrInsert", {
+    value: function (key, defaultValue) {
+      if (this.has(key)) return this.get(key);
+      this.set(key, defaultValue);
+      return defaultValue;
+    },
+    writable: true, configurable: true,
+  });
+}
 /**
  * @licstart The following is the entire license notice for the
  * JavaScript code in this page
