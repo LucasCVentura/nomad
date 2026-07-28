@@ -215,6 +215,15 @@ export async function convertPdfToBlocks(
         }
       }
 
+      // Scanned/photographed pages (or ones where "text" is actually vector
+      // outlines) have no real text layer and no paintImageXObject calls we
+      // can detect — nothing gets extracted. Fall back to the already
+      // rendered page itself so the page isn't silently dropped.
+      if (textBlocks.length === 0 && imageBlocks.length === 0) {
+        imageBlocks = [{ y: 0, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }];
+        imagesSoFar += 1;
+      }
+
       perPage.push({ textBlocks, imageBlocks });
       allFontSizes.push(...textBlocks.map((b) => b.fontSize));
 
