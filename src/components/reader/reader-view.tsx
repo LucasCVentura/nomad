@@ -16,6 +16,7 @@ import {
   getParagraphSegments,
   getTextOffset,
   rangesOverlap,
+  tokenizeSentences,
   type Annotation,
 } from "@/lib/annotation-utils";
 import {
@@ -54,6 +55,11 @@ export function ReaderView({
 
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [pending, setPending] = useState<PendingSelection | null>(null);
+  const [mobileAnchor, setMobileAnchor] = useState<{
+    paragraphId: string;
+    start: number;
+    end: number;
+  } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -102,15 +108,17 @@ export function ReaderView({
         !articleRef.current?.contains(target)
       ) {
         setPending(null);
+        setMobileAnchor(null);
       }
     }
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
 
-  // Touch-based selection (long-press + drag handles) never fires a
-  // `mouseup` on iOS/Android — `selectionchange` is the only event both
-  // input types reliably emit, so it drives the toolbar on every device.
+  // Desktop only: native drag-to-select. Touch-based selection never fires a
+  // `mouseup` on iOS/Android, and the OS's own selection UI (handles + the
+  // Copy/Look Up callout) would collide with ours anyway — mobile uses the
+  // tap-a-sentence flow below instead, with native selection disabled there.
   useEffect(() => {
     let timeoutId: number;
 
@@ -151,8 +159,6 @@ export function ReaderView({
 
     function onSelectionChange() {
       window.clearTimeout(timeoutId);
-      // Debounced so it fires once a touch selection settles instead of
-      // on every intermediate handle-drag position.
       timeoutId = window.setTimeout(trySetPendingFromSelection, 250);
     }
 
@@ -162,6 +168,36 @@ export function ReaderView({
       window.clearTimeout(timeoutId);
     };
   }, []);
+
+  // Mobile: tapping a sentence selects it; tapping another sentence in the
+  // same paragraph extends the range to cover both. No native selection is
+  // ever created, so there's nothing for the browser's own UI to fight over.
+  function handleSentenceTap(paragraph: FlatParagraph, start: number, end: number) {
+    setMobileAnchor((prevAnchor) => {
+      if (!prevAnchor || prevAnchor.paragraphId !== paragraph.id) {
+        setPending({
+          paragraphId: paragraph.id,
+          start,
+          end,
+          text: paragraph.text.slice(start, end).trim(),
+          x: 0,
+          y: 0,
+        });
+        return { paragraphId: paragraph.id, start, end };
+      }
+      const newStart = Math.min(prevAnchor.start, start);
+      const newEnd = Math.max(prevAnchor.end, end);
+      setPending({
+        paragraphId: paragraph.id,
+        start: newStart,
+        end: newEnd,
+        text: paragraph.text.slice(newStart, newEnd).trim(),
+        x: 0,
+        y: 0,
+      });
+      return prevAnchor;
+    });
+  }
 
   function commitAnnotation(note?: string) {
     if (!pending) return;
@@ -183,18 +219,26 @@ export function ReaderView({
     });
     window.getSelection()?.removeAllRanges();
     setPending(null);
+    setMobileAnchor(null);
   }
 
   function cancelSelection() {
     window.getSelection()?.removeAllRanges();
     setPending(null);
+    setMobileAnchor(null);
   }
 
   function jumpTo(annotation: Annotation) {
-    const el = document.querySelector(
+    const candidates = document.querySelectorAll(
       `[data-paragraph-id="${annotation.paragraphId}"]`
     );
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const visible = Array.from(candidates).find(
+      (el) => (el as HTMLElement).offsetParent !== null
+    );
+    (visible ?? candidates[0])?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
     setActiveId(annotation.id);
     window.setTimeout(() => setActiveId(null), 1500);
   }
@@ -253,7 +297,7 @@ export function ReaderView({
       <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
         <article
           ref={articleRef}
-          className="select-text rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.85] text-[oklch(0.88_0.015_75)] sm:p-12"
+          className="rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.85] text-[oklch(0.88_0.015_75)] sm:p-12"
         >
           <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
             {content.category}
@@ -262,14 +306,39 @@ export function ReaderView({
             {content.title}
           </h1>
           <p className="mt-6 text-sm text-muted-foreground">
-            Selecione qualquer trecho abaixo pra grifar ou adicionar uma
-            anotação.
+            <span className="hidden sm:inline">
+              Selecione qualquer trecho abaixo pra grifar ou adicionar uma
+              anotação.
+            </span>
+            <span className="sm:hidden">
+              Toque numa frase pra selecionar — toque em outra pra estender
+              o trecho.
+            </span>
           </p>
 
           <div className="mt-8 space-y-7">
             {flatParagraphs.map((paragraph, index) => {
               const anns = annotationsByParagraph.get(paragraph.id) ?? [];
               const segments = getParagraphSegments(paragraph.text, anns);
+
+              const pendingHere =
+                pending && pending.paragraphId === paragraph.id ? pending : null;
+              const mobileSegments = getParagraphSegments(
+                paragraph.text,
+                pendingHere
+                  ? [
+                      ...anns,
+                      {
+                        id: "__pending__",
+                        paragraphId: paragraph.id,
+                        start: pendingHere.start,
+                        end: pendingHere.end,
+                        text: pendingHere.text,
+                      },
+                    ]
+                  : anns
+              );
+
               return (
                 <div key={paragraph.id}>
                   {paragraph.sectionHeading && (
@@ -277,9 +346,12 @@ export function ReaderView({
                       {paragraph.sectionHeading}
                     </h2>
                   )}
+
+                  {/* Desktop: native drag-to-select */}
                   <p
                     data-paragraph-id={paragraph.id}
                     data-paragraph-index={index}
+                    className="hidden select-text sm:block"
                   >
                     {segments.map((segment, i) =>
                       segment.annotation ? (
@@ -299,6 +371,53 @@ export function ReaderView({
                         <span key={i}>{segment.text}</span>
                       )
                     )}
+                  </p>
+
+                  {/* Mobile: tap-a-sentence, no native selection involved */}
+                  <p
+                    data-paragraph-id={paragraph.id}
+                    data-paragraph-index={index}
+                    className="select-none sm:hidden"
+                  >
+                    {mobileSegments.map((segment, i) => {
+                      if (segment.annotation) {
+                        const isPending = segment.annotation.id === "__pending__";
+                        return (
+                          <mark
+                            key={i}
+                            className={`rounded-sm px-0.5 text-foreground ${
+                              isPending
+                                ? "bg-rose/20 outline-dashed outline-1 outline-rose/60"
+                                : segment.annotation.note
+                                  ? "bg-gold/30"
+                                  : "bg-rose/30"
+                            } ${
+                              activeId === segment.annotation.id
+                                ? "ring-2 ring-rose"
+                                : ""
+                            }`}
+                          >
+                            {segment.text}
+                          </mark>
+                        );
+                      }
+                      const sentences = tokenizeSentences(segment.text, segment.start);
+                      return (
+                        <span key={i}>
+                          {sentences.map((sentence, j) => (
+                            <span
+                              key={j}
+                              onClick={() =>
+                                handleSentenceTap(paragraph, sentence.start, sentence.end)
+                              }
+                              className="active:bg-muted"
+                            >
+                              {sentence.text}
+                            </span>
+                          ))}
+                        </span>
+                      );
+                    })}
                   </p>
                 </div>
               );
