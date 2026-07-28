@@ -31,10 +31,12 @@ export function ReaderView({
   content,
   blocks,
   contentId,
+  backHref = "/app",
 }: {
   content: { title: string; category: string };
   blocks: ContentBlock[];
   contentId?: string;
+  backHref?: string;
 }) {
   // Only paragraph blocks are annotatable; each gets a stable sequential id.
   const paragraphMeta = useMemo(() => {
@@ -275,7 +277,7 @@ export function ReaderView({
       <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href="/app"
+            href={backHref}
             className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="size-4" />

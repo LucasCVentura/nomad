@@ -47,11 +47,17 @@ export default async function LerPage({
     redirect("/loja");
   }
 
+  // Reached via the admin-only bypass (no real purchase) → she almost
+  // certainly got here from the admin content list, so "back" should
+  // return her there instead of to the student dashboard.
+  const backHref = !purchase && profile?.is_admin ? "/admin/conteudos" : "/app";
+
   return (
     <ReaderView
       content={{ title: row.title, category: row.category }}
       blocks={row.body as ContentBlock[]}
       contentId={row.id}
+      backHref={backHref}
     />
   );
 }
