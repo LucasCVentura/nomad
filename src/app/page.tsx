@@ -8,12 +8,12 @@ import {
   ArrowRight,
   ArrowUpRight,
   MoveHorizontal,
-  AtSign,
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MobileNav } from "@/components/mobile-nav";
-import { Logo, Logomark } from "@/components/logo";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { Logomark } from "@/components/logo";
 import {
   Accordion,
   AccordionContent,
@@ -175,45 +175,7 @@ function Kicker({ children }: { children: React.ReactNode }) {
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-18 w-full max-w-6xl items-center justify-between px-6">
-          <Logo />
-          <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
-            <a href="#recursos" className="hover:text-foreground">
-              Recursos
-            </a>
-            <a href="#conteudos" className="hover:text-foreground">
-              Conteúdos
-            </a>
-            <a href="#comunidade" className="hover:text-foreground">
-              Comunidade
-            </a>
-            <a href="#duvidas" className="hover:text-foreground">
-              Dúvidas
-            </a>
-          </nav>
-          <div className="hidden items-center gap-3 md:flex">
-            <Button
-              variant="ghost"
-              size="sm"
-              render={<Link href="#comecar" />}
-              nativeButton={false}
-            >
-              Entrar
-            </Button>
-            <Button
-              size="sm"
-              className="bg-rose text-rose-foreground hover:bg-rose/90"
-              render={<Link href="#comecar" />}
-              nativeButton={false}
-            >
-              Criar conta
-            </Button>
-          </div>
-          <MobileNav />
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="flex flex-1 flex-col">
         {/* Hero */}
@@ -258,7 +220,7 @@ export default function Home() {
                 <Button
                   size="lg"
                   className="bg-rose text-rose-foreground hover:bg-rose/90"
-                  render={<Link href="#comecar" />}
+                  render={<Link href="/registro" />}
                   nativeButton={false}
                 >
                   Criar conta grátis
@@ -267,7 +229,7 @@ export default function Home() {
                 <Button
                   size="lg"
                   variant="outline"
-                  render={<Link href="#conteudos" />}
+                  render={<Link href="/loja" />}
                   nativeButton={false}
                 >
                   Ver conteúdos
@@ -376,7 +338,7 @@ export default function Home() {
               </div>
               <Button
                 variant="outline"
-                render={<Link href="#comecar" />}
+                render={<Link href="/loja" />}
                 nativeButton={false}
               >
                 Ver loja completa
@@ -582,11 +544,21 @@ export default function Home() {
               comunidade de profissionais de estética.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Button size="lg" className="bg-rose text-rose-foreground hover:bg-rose/90">
+              <Button
+                size="lg"
+                className="bg-rose text-rose-foreground hover:bg-rose/90"
+                render={<Link href="/registro" />}
+                nativeButton={false}
+              >
                 Criar conta grátis
                 <ArrowRight className="size-4" />
               </Button>
-              <Button size="lg" variant="outline">
+              <Button
+                size="lg"
+                variant="outline"
+                render={<Link href="/entrar" />}
+                nativeButton={false}
+              >
                 Já tenho conta
               </Button>
             </div>
@@ -594,56 +566,7 @@ export default function Home() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/60 px-6 py-14">
-        <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <Logo />
-            <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-              Materiais de estudo e comunidade pra profissionais de estética.
-            </p>
-            <a
-              href="#"
-              className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <AtSign className="size-4" />
-              @nomad
-            </a>
-          </div>
-          <div>
-            <p className="mb-3 text-xs font-medium tracking-[0.2em] text-gold uppercase">
-              Produto
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#recursos" className="hover:text-foreground">Recursos</a></li>
-              <li><a href="#conteudos" className="hover:text-foreground">Loja</a></li>
-              <li><a href="#comunidade" className="hover:text-foreground">Comunidade</a></li>
-            </ul>
-          </div>
-          <div>
-            <p className="mb-3 text-xs font-medium tracking-[0.2em] text-gold uppercase">
-              Suporte
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#duvidas" className="hover:text-foreground">Dúvidas frequentes</a></li>
-              <li><a href="#comecar" className="hover:text-foreground">Entrar</a></li>
-              <li><a href="#comecar" className="hover:text-foreground">Criar conta</a></li>
-            </ul>
-          </div>
-          <div>
-            <p className="mb-3 text-xs font-medium tracking-[0.2em] text-gold uppercase">
-              Legal
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground">Termos de uso</a></li>
-              <li><a href="#" className="hover:text-foreground">Privacidade</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="mx-auto mt-12 max-w-6xl border-t border-border/60 pt-6 text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} Nomad. Todos os direitos reservados.
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -13,10 +13,10 @@ import {
 } from "@/components/ui/sheet";
 
 const links = [
-  { href: "#recursos", label: "Recursos" },
-  { href: "#conteudos", label: "Conteúdos" },
-  { href: "#comunidade", label: "Comunidade" },
-  { href: "#duvidas", label: "Dúvidas" },
+  { href: "/#recursos", label: "Recursos" },
+  { href: "/loja", label: "Loja" },
+  { href: "/#comunidade", label: "Comunidade" },
+  { href: "/#duvidas", label: "Dúvidas" },
 ];
 
 export function MobileNav() {
@@ -48,14 +48,14 @@ export function MobileNav() {
         </nav>
         <div className="mt-auto flex flex-col gap-2 p-4">
           <SheetClose
-            render={<Link href="#comecar" />}
+            render={<Link href="/entrar" />}
             nativeButton={false}
             className="flex h-9 items-center justify-center rounded-lg border border-border text-sm text-foreground"
           >
             Entrar
           </SheetClose>
           <SheetClose
-            render={<Link href="#comecar" />}
+            render={<Link href="/registro" />}
             nativeButton={false}
             className="flex h-9 items-center justify-center rounded-lg bg-rose text-sm text-rose-foreground"
           >
