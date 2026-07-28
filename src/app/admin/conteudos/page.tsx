@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,6 +40,7 @@ export default async function AdminConteudosPage() {
                 <th className="px-5 py-3 font-medium">Categoria</th>
                 <th className="px-5 py-3 font-medium">Preço</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -60,6 +61,17 @@ export default async function AdminConteudosPage() {
                     >
                       {item.status === "published" ? "Publicado" : "Rascunho"}
                     </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      render={<Link href={`/app/ler/${item.slug}`} />}
+                      nativeButton={false}
+                    >
+                      <Eye className="size-3.5" />
+                      Visualizar
+                    </Button>
                   </td>
                 </tr>
               ))}

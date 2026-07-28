@@ -30,14 +30,20 @@ export default async function LerPage({
     notFound();
   }
 
-  const { data: purchase } = await supabase
-    .from("purchases")
-    .select("id")
-    .eq("user_id", session.user.id)
-    .eq("content_id", row.id)
-    .maybeSingle();
+  const [{ data: purchase }, { data: profile }] = await Promise.all([
+    supabase
+      .from("purchases")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .eq("content_id", row.id)
+      .maybeSingle(),
+    supabase.from("profiles").select("is_admin").eq("id", session.user.id).single(),
+  ]);
 
-  if (!purchase) {
+  // The admin can always open any content to see it exactly as a student
+  // would — otherwise she'd never be able to preview what she just
+  // published, since she hasn't "purchased" her own material.
+  if (!purchase && !profile?.is_admin) {
     redirect("/loja");
   }
 
