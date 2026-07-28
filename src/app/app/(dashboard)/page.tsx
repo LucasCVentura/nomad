@@ -7,18 +7,20 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function AppPage() {
   const supabase = await createClient();
+  // getSession() avoids a second Auth round-trip — middleware already
+  // verified this request has a valid session before /app was reached.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!user) {
+  if (!session) {
     redirect("/entrar?next=/app");
   }
 
   const { data: purchases } = await supabase
     .from("purchases")
     .select("progress, contents(slug, title, category)")
-    .eq("user_id", user.id)
+    .eq("user_id", session.user.id)
     .order("purchased_at", { ascending: false });
 
   const items = purchases ?? [];

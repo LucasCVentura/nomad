@@ -11,18 +11,20 @@ export default async function LerPage({
   const { slug } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // Independent lookups run in parallel instead of one-after-another.
+  const [
+    {
+      data: { session },
+    },
+    { data: row },
+  ] = await Promise.all([
+    supabase.auth.getSession(),
+    supabase.from("contents").select("id, title, category, body").eq("slug", slug).maybeSingle(),
+  ]);
+
+  if (!session) {
     redirect(`/entrar?next=/app/ler/${slug}`);
   }
-
-  const { data: row } = await supabase
-    .from("contents")
-    .select("id, title, category, body")
-    .eq("slug", slug)
-    .maybeSingle();
 
   if (!row) {
     notFound();
@@ -31,7 +33,7 @@ export default async function LerPage({
   const { data: purchase } = await supabase
     .from("purchases")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", session.user.id)
     .eq("content_id", row.id)
     .maybeSingle();
 

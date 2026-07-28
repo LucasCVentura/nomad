@@ -103,13 +103,13 @@ export function ReaderView({
     const timeout = window.setTimeout(async () => {
       const supabase = createClient();
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
       await supabase
         .from("purchases")
         .update({ progress })
-        .eq("user_id", user.id)
+        .eq("user_id", session.user.id)
         .eq("content_id", contentId);
     }, 1500);
     return () => window.clearTimeout(timeout);

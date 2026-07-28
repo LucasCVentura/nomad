@@ -6,20 +6,27 @@ import { createClient } from "@/lib/supabase/server";
 export default async function LojaPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const [{ data: contents }, { data: purchases }] = await Promise.all([
+  // getSession() (cookie-only, no Auth network round-trip) runs alongside
+  // the contents query instead of blocking it first.
+  const [
+    {
+      data: { session },
+    },
+    { data: contents },
+  ] = await Promise.all([
+    supabase.auth.getSession(),
     supabase
       .from("contents")
       .select("id, slug, title, category, format, pages, price, description")
       .eq("status", "published")
       .order("created_at", { ascending: false }),
-    user
-      ? supabase.from("purchases").select("content_id").eq("user_id", user.id)
-      : Promise.resolve({ data: null }),
   ]);
+
+  const user = session?.user ?? null;
+
+  const { data: purchases } = user
+    ? await supabase.from("purchases").select("content_id").eq("user_id", user.id)
+    : { data: null };
 
   const purchasedIds = new Set((purchases ?? []).map((p) => p.content_id));
 

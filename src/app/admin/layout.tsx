@@ -16,18 +16,21 @@ export default async function AdminLayout({
   }
 
   const supabase = await createClient();
+  // getSession() reads the already-verified cookie instead of re-checking
+  // with the Auth server — middleware just did that check for this exact
+  // route, and the is_admin query below is itself protected by RLS.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!user) {
+  if (!session) {
     redirect("/entrar?next=/admin");
   }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("is_admin")
-    .eq("id", user.id)
+    .eq("id", session.user.id)
     .single();
 
   if (!profile?.is_admin) {

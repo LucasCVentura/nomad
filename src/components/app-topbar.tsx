@@ -27,8 +27,9 @@ export function AppTopbar() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      const name = (data.user?.user_metadata?.name as string | undefined) ?? data.user?.email;
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      const name = (user?.user_metadata?.name as string | undefined) ?? user?.email;
       if (name) setLabel(getInitials(name));
     });
   }, []);

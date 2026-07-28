@@ -5,8 +5,9 @@ export async function middleware(request: NextRequest) {
   return updateSession(request);
 }
 
+// Only /app and /admin need a session check. Every other route (landing,
+// /loja, /entrar...) used to pay for a Supabase network round-trip on every
+// navigation for no reason — this scopes the middleware to where it matters.
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/app/:path*", "/admin/:path*"],
 };
