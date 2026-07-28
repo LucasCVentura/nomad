@@ -172,14 +172,30 @@ async function extractImageBlocks(
   return images;
 }
 
+const ICLOUD_HINT =
+  "confira se o arquivo está baixado no aparelho (e não só salvo no iCloud/nuvem) e se há conexão com a internet";
+
 export async function convertPdfToBlocks(
   file: File,
   onProgress?: (page: number, totalPages: number) => void
 ): Promise<ContentBlock[]> {
+  if (file.size === 0) {
+    throw new Error(`arquivo vazio — ${ICLOUD_HINT}`);
+  }
+
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
 
   const buffer = await file.arrayBuffer();
+
+  if (buffer.byteLength === 0) {
+    throw new Error(`não consegui ler o conteúdo do arquivo — ${ICLOUD_HINT}`);
+  }
+  const header = new TextDecoder().decode(new Uint8Array(buffer, 0, Math.min(5, buffer.byteLength)));
+  if (header !== "%PDF-") {
+    throw new Error(`o arquivo não parece ser um PDF válido ou está incompleto — ${ICLOUD_HINT}`);
+  }
+
   const doc = await pdfjsLib.getDocument({
     data: buffer,
     cMapUrl: "/pdfjs/cmaps/",
