@@ -1,15 +1,42 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 
 export default function EntrarPage() {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email"));
+    const password = String(formData.get("password"));
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setError("E-mail ou senha incorretos.");
+      setLoading(false);
+      return;
+    }
+
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(next ?? "/app");
+    router.refresh();
+  }
 
   return (
     <AuthShell
@@ -24,26 +51,22 @@ export default function EntrarPage() {
         </>
       }
     >
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          router.push("/app");
-        }}
-      >
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-1.5">
           <Label htmlFor="email">E-mail</Label>
-          <Input id="email" type="email" placeholder="voce@email.com" required />
+          <Input id="email" name="email" type="email" placeholder="voce@email.com" required />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" placeholder="••••••••" required />
+          <Input id="password" name="password" type="password" placeholder="••••••••" required />
         </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <Button
           type="submit"
+          disabled={loading}
           className="w-full bg-rose text-rose-foreground hover:bg-rose/90"
         >
-          Entrar
+          {loading ? "Entrando..." : "Entrar"}
           <ArrowRight className="size-4" />
         </Button>
       </form>

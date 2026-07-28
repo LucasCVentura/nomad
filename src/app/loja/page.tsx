@@ -1,20 +1,32 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { FileText, ShoppingCart } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { Button } from "@/components/ui/button";
-import { catalog, categories } from "@/lib/mock-data";
+import { LojaGrid, type LojaItem } from "@/components/loja-grid";
+import { createClient } from "@/lib/supabase/server";
 
-export default function LojaPage() {
-  const [active, setActive] = useState<(typeof categories)[number]>("Todos");
+export default async function LojaPage() {
+  const supabase = await createClient();
 
-  const filtered =
-    active === "Todos"
-      ? catalog
-      : catalog.filter((item) => item.category === active);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [{ data: contents }, { data: purchases }] = await Promise.all([
+    supabase
+      .from("contents")
+      .select("id, slug, title, category, format, pages, price, description")
+      .eq("status", "published")
+      .order("created_at", { ascending: false }),
+    user
+      ? supabase.from("purchases").select("content_id").eq("user_id", user.id)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const purchasedIds = new Set((purchases ?? []).map((p) => p.content_id));
+
+  const items: LojaItem[] = (contents ?? []).map((item) => ({
+    ...item,
+    purchased: purchasedIds.has(item.id),
+  }));
 
   return (
     <div className="flex flex-1 flex-col">
@@ -31,73 +43,11 @@ export default function LojaPage() {
             Todos os conteúdos
           </h1>
           <p className="mt-3 max-w-lg text-muted-foreground">
-            Materiais escritos por profissionais da estética, prontos pra
-            comprar e estudar direto na plataforma.
+            Materiais escritos pela Dra. Nathalia, prontos pra comprar e
+            estudar direto na plataforma.
           </p>
 
-          <div className="mt-10 flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setActive(category)}
-                className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-                  active === category
-                    ? "border-rose bg-rose/15 text-rose"
-                    : "border-border/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((item) => (
-              <div
-                key={item.slug}
-                className="flex flex-col rounded-2xl border border-border/60 bg-card p-5"
-              >
-                <div className="mb-4 flex aspect-4/3 items-center justify-center rounded-lg bg-linear-to-br from-gold/15 to-rose/15">
-                  <FileText className="size-8 text-gold" />
-                </div>
-                <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-                  {item.category}
-                </span>
-                <h3 className="mt-1.5 font-heading text-lg leading-snug text-foreground">
-                  {item.title}
-                </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  {item.description}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {item.format} · {item.pages} páginas
-                </p>
-                <div className="mt-5 flex items-center justify-between">
-                  <span className="font-heading text-xl text-foreground">
-                    R$ {item.price.toFixed(2).replace(".", ",")}
-                  </span>
-                  {item.purchased ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      render={<Link href={`/app/ler/${item.slug}`} />}
-                      nativeButton={false}
-                    >
-                      Já adquirido
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="bg-rose text-rose-foreground hover:bg-rose/90"
-                    >
-                      <ShoppingCart className="size-3.5" />
-                      Comprar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <LojaGrid items={items} isLoggedIn={Boolean(user)} />
         </div>
       </main>
 

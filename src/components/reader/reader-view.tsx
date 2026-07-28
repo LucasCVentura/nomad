@@ -24,34 +24,30 @@ import {
   type PendingSelection,
 } from "@/components/reader/selection-toolbar";
 import { AnnotationsPanel } from "@/components/reader/annotations-panel";
-import type { ContentItem } from "@/lib/mock-data";
-
-type FlatParagraph = {
-  id: string;
-  text: string;
-  sectionHeading?: string;
-};
+import { createClient } from "@/lib/supabase/client";
+import type { ContentBlock } from "@/lib/supabase/types";
 
 export function ReaderView({
   content,
-  body,
+  blocks,
+  contentId,
 }: {
-  content: ContentItem;
-  body: { heading: string; paragraphs: string[] }[];
+  content: { title: string; category: string };
+  blocks: ContentBlock[];
+  contentId?: string;
 }) {
-  const flatParagraphs: FlatParagraph[] = useMemo(() => {
-    const flat: FlatParagraph[] = [];
-    body.forEach((section) => {
-      section.paragraphs.forEach((text, i) => {
-        flat.push({
-          id: `p-${flat.length}`,
-          text,
-          sectionHeading: i === 0 ? section.heading : undefined,
-        });
-      });
+  // Only paragraph blocks are annotatable; each gets a stable sequential id.
+  const paragraphMeta = useMemo(() => {
+    const byBlockIndex = new Map<number, { id: string; index: number; text: string }>();
+    let count = 0;
+    blocks.forEach((block, blockIndex) => {
+      if (block.type === "paragraph") {
+        byBlockIndex.set(blockIndex, { id: `p-${count}`, index: count, text: block.text });
+        count++;
+      }
     });
-    return flat;
-  }, [body]);
+    return { byBlockIndex, total: count };
+  }, [blocks]);
 
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [pending, setPending] = useState<PendingSelection | null>(null);
@@ -89,7 +85,7 @@ export function ReaderView({
         }
         const furthest = Math.max(0, ...Array.from(seen)) + 1;
         setProgress(
-          Math.round((furthest / flatParagraphs.length) * 100)
+          paragraphMeta.total ? Math.round((furthest / paragraphMeta.total) * 100) : 0
         );
       },
       { rootMargin: "0px 0px -60% 0px", threshold: 0 }
@@ -98,7 +94,26 @@ export function ReaderView({
     const nodes = articleRef.current?.querySelectorAll("[data-paragraph-index]");
     nodes?.forEach((node) => observer.observe(node));
     return () => observer.disconnect();
-  }, [flatParagraphs.length]);
+  }, [paragraphMeta.total, blocks]);
+
+  // Persist reading progress so it survives across sessions and shows up
+  // on the student dashboard. Debounced to avoid writing on every scroll tick.
+  useEffect(() => {
+    if (!contentId || progress === 0) return;
+    const timeout = window.setTimeout(async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from("purchases")
+        .update({ progress })
+        .eq("user_id", user.id)
+        .eq("content_id", contentId);
+    }, 1500);
+    return () => window.clearTimeout(timeout);
+  }, [progress, contentId]);
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
@@ -172,26 +187,26 @@ export function ReaderView({
   // Mobile: tapping a sentence selects it; tapping another sentence in the
   // same paragraph extends the range to cover both. No native selection is
   // ever created, so there's nothing for the browser's own UI to fight over.
-  function handleSentenceTap(paragraph: FlatParagraph, start: number, end: number) {
+  function handleSentenceTap(paragraphId: string, paragraphText: string, start: number, end: number) {
     setMobileAnchor((prevAnchor) => {
-      if (!prevAnchor || prevAnchor.paragraphId !== paragraph.id) {
+      if (!prevAnchor || prevAnchor.paragraphId !== paragraphId) {
         setPending({
-          paragraphId: paragraph.id,
+          paragraphId,
           start,
           end,
-          text: paragraph.text.slice(start, end).trim(),
+          text: paragraphText.slice(start, end).trim(),
           x: 0,
           y: 0,
         });
-        return { paragraphId: paragraph.id, start, end };
+        return { paragraphId, start, end };
       }
       const newStart = Math.min(prevAnchor.start, start);
       const newEnd = Math.max(prevAnchor.end, end);
       setPending({
-        paragraphId: paragraph.id,
+        paragraphId,
         start: newStart,
         end: newEnd,
-        text: paragraph.text.slice(newStart, newEnd).trim(),
+        text: paragraphText.slice(newStart, newEnd).trim(),
         x: 0,
         y: 0,
       });
@@ -317,20 +332,41 @@ export function ReaderView({
           </p>
 
           <div className="mt-8 space-y-7">
-            {flatParagraphs.map((paragraph, index) => {
-              const anns = annotationsByParagraph.get(paragraph.id) ?? [];
-              const segments = getParagraphSegments(paragraph.text, anns);
+            {blocks.map((block, blockIndex) => {
+              if (block.type === "heading") {
+                return (
+                  <h2 key={blockIndex} className="font-heading text-xl text-foreground">
+                    {block.text}
+                  </h2>
+                );
+              }
+
+              if (block.type === "image") {
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={blockIndex}
+                    src={block.url}
+                    alt={block.alt ?? ""}
+                    className="w-full rounded-xl border border-border/60"
+                  />
+                );
+              }
+
+              const meta = paragraphMeta.byBlockIndex.get(blockIndex)!;
+              const anns = annotationsByParagraph.get(meta.id) ?? [];
+              const segments = getParagraphSegments(block.text, anns);
 
               const pendingHere =
-                pending && pending.paragraphId === paragraph.id ? pending : null;
+                pending && pending.paragraphId === meta.id ? pending : null;
               const mobileSegments = getParagraphSegments(
-                paragraph.text,
+                block.text,
                 pendingHere
                   ? [
                       ...anns,
                       {
                         id: "__pending__",
-                        paragraphId: paragraph.id,
+                        paragraphId: meta.id,
                         start: pendingHere.start,
                         end: pendingHere.end,
                         text: pendingHere.text,
@@ -340,17 +376,11 @@ export function ReaderView({
               );
 
               return (
-                <div key={paragraph.id}>
-                  {paragraph.sectionHeading && (
-                    <h2 className="mb-4 font-heading text-xl text-foreground">
-                      {paragraph.sectionHeading}
-                    </h2>
-                  )}
-
+                <div key={blockIndex}>
                   {/* Desktop: native drag-to-select */}
                   <p
-                    data-paragraph-id={paragraph.id}
-                    data-paragraph-index={index}
+                    data-paragraph-id={meta.id}
+                    data-paragraph-index={meta.index}
                     className="hidden select-text sm:block"
                   >
                     {segments.map((segment, i) =>
@@ -375,8 +405,8 @@ export function ReaderView({
 
                   {/* Mobile: tap-a-sentence, no native selection involved */}
                   <p
-                    data-paragraph-id={paragraph.id}
-                    data-paragraph-index={index}
+                    data-paragraph-id={meta.id}
+                    data-paragraph-index={meta.index}
                     className="select-none sm:hidden"
                   >
                     {mobileSegments.map((segment, i) => {
@@ -408,7 +438,7 @@ export function ReaderView({
                             <span
                               key={j}
                               onClick={() =>
-                                handleSentenceTap(paragraph, sentence.start, sentence.end)
+                                handleSentenceTap(meta.id, block.text, sentence.start, sentence.end)
                               }
                               className="active:bg-muted"
                             >

@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
-import { catalog } from "@/lib/mock-data";
-import { getMockBody } from "@/lib/mock-content";
+import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/reader/reader-view";
+import { createClient } from "@/lib/supabase/server";
+import type { ContentBlock } from "@/lib/supabase/types";
 
 export default async function LerPage({
   params,
@@ -9,13 +9,41 @@ export default async function LerPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const content = catalog.find((item) => item.slug === slug);
+  const supabase = await createClient();
 
-  if (!content) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/entrar?next=/app/ler/${slug}`);
+  }
+
+  const { data: row } = await supabase
+    .from("contents")
+    .select("id, title, category, body")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!row) {
     notFound();
   }
 
-  const body = getMockBody(content.title);
+  const { data: purchase } = await supabase
+    .from("purchases")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("content_id", row.id)
+    .maybeSingle();
 
-  return <ReaderView content={content} body={body} />;
+  if (!purchase) {
+    redirect("/loja");
+  }
+
+  return (
+    <ReaderView
+      content={{ title: row.title, category: row.category }}
+      blocks={row.body as ContentBlock[]}
+      contentId={row.id}
+    />
+  );
 }

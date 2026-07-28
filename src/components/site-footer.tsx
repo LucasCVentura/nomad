@@ -9,7 +9,8 @@ export function SiteFooter() {
         <div>
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-            Materiais de estudo e comunidade pra profissionais de estética.
+            Materiais de estudo e comunidade criados pela Dra. Nathalia pra
+            profissionais de estética.
           </p>
           <a
             href="#"
@@ -27,6 +28,11 @@ export function SiteFooter() {
             <li>
               <a href="/#recursos" className="hover:text-foreground">
                 Recursos
+              </a>
+            </li>
+            <li>
+              <a href="/#sobre" className="hover:text-foreground">
+                Sobre a Dra. Nathalia
               </a>
             </li>
             <li>
