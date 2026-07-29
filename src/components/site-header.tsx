@@ -20,8 +20,8 @@ export function SiteHeader() {
           <Link href="/loja" className="hover:text-foreground">
             Loja
           </Link>
-          <a href="/#comunidade" className="hover:text-foreground">
-            Comunidade
+          <a href="/#chat" className="hover:text-foreground">
+            Fale com a doutora
           </a>
           <a href="/#duvidas" className="hover:text-foreground">
             Dúvidas

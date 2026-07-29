@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, MessageCircle, Settings2 } from "lucide-react";
+import { LayoutGrid, ShoppingBag, Settings2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/app", label: "Meus conteúdos", icon: LayoutGrid },
-  { href: "/loja", label: "Loja", icon: ShoppingBag },
-  { href: "#", label: "Comunidade", icon: MessageCircle, soon: true },
+  { href: "/app/loja", label: "Loja", icon: ShoppingBag },
   { href: "#", label: "Configurações", icon: Settings2, soon: true },
 ];
 
@@ -23,7 +22,8 @@ export function AppSidebar() {
       </Link>
       <nav className="flex flex-col gap-1">
         {items.map((item) => {
-          const active = pathname === item.href;
+          const active =
+            item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
           return (
             <Link
               key={item.label}

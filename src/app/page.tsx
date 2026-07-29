@@ -43,9 +43,9 @@ const features = [
   },
   {
     icon: MessageCircle,
-    title: "Comunidade e dúvidas",
+    title: "Fale com a Dra. Nathalia",
     description:
-      "Um fórum pra trocar experiência com outras profissionais e tirar dúvidas dos conteúdos.",
+      "Um chat exclusivo em cada conteúdo que você compra pra tirar dúvidas direto com quem escreveu o material.",
   },
 ];
 
@@ -80,7 +80,7 @@ const catalog = [
 const steps = [
   {
     title: "Crie sua conta",
-    description: "Cadastro rápido pra ter acesso à loja e à comunidade.",
+    description: "Cadastro rápido pra ter acesso à loja e ao chat com a Dra. Nathalia.",
   },
   {
     title: "Escolha seus materiais",
@@ -91,8 +91,8 @@ const steps = [
     description: "Leia direto na plataforma e registre suas próprias observações.",
   },
   {
-    title: "Tire dúvidas na comunidade",
-    description: "Pergunte, responda e troque experiência com outras profissionais.",
+    title: "Tire dúvidas com a Dra. Nathalia",
+    description: "Manda sua pergunta sobre o material direto pra ela, sem intermediário.",
   },
 ];
 
@@ -107,7 +107,7 @@ const testimonialsRowA = [
     name: "Juliana M.",
     role: "Biomédica esteta",
     quote:
-      "A comunidade me ajudou a tirar uma dúvida de protocolo no mesmo dia.",
+      "A Dra. Nathalia mesma respondeu minha dúvida de protocolo no mesmo dia.",
   },
   {
     name: "Patrícia A.",
@@ -126,7 +126,7 @@ const testimonialsRowB = [
   {
     name: "Bianca S.",
     role: "Biomédica esteta",
-    quote: "O jeito que o fórum organiza por conteúdo facilita muito achar resposta.",
+    quote: "Ter um chat separado por curso facilita muito organizar minhas dúvidas.",
   },
   {
     name: "Larissa T.",
@@ -162,9 +162,9 @@ const faq = [
       "Sim, todo material adquirido fica salvo na sua área de estudos com acesso ilimitado.",
   },
   {
-    question: "A comunidade é só pra quem compra conteúdo?",
+    question: "Como funciona o contato com a Dra. Nathalia?",
     answer:
-      "Qualquer pessoa cadastrada pode participar do fórum, tanto com dúvidas gerais quanto sobre materiais específicos.",
+      "Cada conteúdo que você compra tem um chat exclusivo com a Dra. Nathalia pra tirar dúvidas sobre aquele material. A conversa é só entre você e ela — não é um fórum público.",
   },
 ];
 
@@ -218,8 +218,8 @@ export default function Home() {
                 </span>
               </h1>
               <p className="mt-7 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Os materiais de estudo, o leitor com anotações e a
-                comunidade da <span className="text-foreground">Dra. Nathalia</span> —
+                Os materiais de estudo, o leitor com anotações e o contato
+                direto com a <span className="text-foreground">Dra. Nathalia</span> —
                 tudo em um só lugar, feito pra quem vive de estética.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -291,7 +291,7 @@ export default function Home() {
 
               <div className="absolute -left-6 top-6 flex items-center gap-2 -rotate-6 rounded-full border border-border/70 bg-popover px-4 py-2 shadow-lg">
                 <MessageCircle className="size-3.5 text-rose" />
-                <span className="text-xs text-foreground">12 respostas na comunidade</span>
+                <span className="text-xs text-foreground">Resposta direto da Dra. Nathalia</span>
               </div>
             </div>
           </div>
@@ -454,24 +454,24 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Community */}
-        <section id="comunidade" className="border-b border-border/60 px-6 py-24">
+        {/* Chat with the doctor */}
+        <section id="chat" className="border-b border-border/60 px-6 py-24">
           <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-2">
             <div>
-              <Kicker>Comunidade</Kicker>
+              <Kicker>Fale com a doutora</Kicker>
               <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
-                Tire dúvidas com quem entende do assunto
+                Tire dúvidas direto com quem escreveu o material
               </h2>
               <p className="mt-4 max-w-md text-muted-foreground">
-                Um espaço no estilo fórum pra perguntas gerais de estética e
-                pra dúvidas específicas dos materiais que você já comprou —
-                com respostas de outras profissionais da área.
+                Cada conteúdo que você compra vem com um chat exclusivo com a
+                Dra. Nathalia. Nada de fórum público — é só você, o material
+                e uma resposta de quem realmente entende do assunto.
               </p>
               <ul className="mt-8 space-y-3">
                 {[
-                  "Dúvidas gerais sobre técnicas e procedimentos",
-                  "Discussões vinculadas a cada conteúdo adquirido",
-                  "Respostas e votos organizados pela comunidade",
+                  "Um chat exclusivo em cada conteúdo que você compra",
+                  "Resposta direto da Dra. Nathalia, não de outros alunos",
+                  "Conversa privada e salva, sem se perder em grupo de WhatsApp",
                 ].map((item) => (
                   <li
                     key={item}
@@ -484,50 +484,36 @@ export default function Home() {
               </ul>
             </div>
 
-            {/* Forum window mockup */}
+            {/* Chat window mockup */}
             <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl shadow-black/30">
               <div className="flex items-center gap-1.5 border-b border-border/60 px-4 py-3">
                 <span className="size-2.5 rounded-full bg-rose/70" />
                 <span className="size-2.5 rounded-full bg-gold/70" />
                 <span className="size-2.5 rounded-full bg-muted-foreground/40" />
                 <span className="ml-3 font-mono text-[11px] text-muted-foreground">
-                  nomad.app/comunidade
+                  Dra. Nathalia · Harmonização Facial
                 </span>
               </div>
               <div className="space-y-3 p-4">
-                {[
-                  {
-                    title: "Como vocês sequenciam microagulhamento após peeling?",
-                    tag: "Procedimentos",
-                    replies: 12,
-                  },
-                  {
-                    title: "Dúvida no capítulo 3 de Harmonização Facial",
-                    tag: "Harmonização Facial na Prática",
-                    replies: 6,
-                  },
-                  {
-                    title: "Indicação de material pra quem tá começando em skincare",
-                    tag: "Skincare",
-                    replies: 21,
-                  },
-                ].map((post) => (
-                  <div
-                    key={post.title}
-                    className="rounded-xl border border-border/60 bg-background/60 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
-                        {post.tag}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MessageCircle className="size-3.5" />
-                        {post.replies}
-                      </span>
-                    </div>
-                    <p className="mt-2.5 text-sm text-foreground">{post.title}</p>
+                <div className="flex justify-end">
+                  <div className="max-w-[80%] rounded-2xl bg-rose px-4 py-2.5 text-sm text-rose-foreground">
+                    Como sequencio microagulhamento após peeling?
                   </div>
-                ))}
+                </div>
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-2xl border border-border/60 bg-background/60 px-4 py-2.5 text-sm text-foreground">
+                    <p className="mb-0.5 text-[11px] font-medium text-gold">
+                      Dra. Nathalia
+                    </p>
+                    Dá um intervalo de pelo menos 15 dias entre os dois
+                    procedimentos, com a pele bem cicatrizada.
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="max-w-[80%] rounded-2xl bg-rose px-4 py-2.5 text-sm text-rose-foreground">
+                    Perfeito, muito obrigada!
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -592,8 +578,8 @@ export default function Home() {
               Comece a estudar hoje
             </h2>
             <p className="mx-auto mt-4 max-w-md text-muted-foreground">
-              Crie sua conta gratuita, acesse a loja e faça parte da
-              comunidade de profissionais de estética.
+              Crie sua conta gratuita, acesse a loja e tire suas dúvidas
+              direto com a Dra. Nathalia.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Button

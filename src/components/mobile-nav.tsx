@@ -16,7 +16,7 @@ const links = [
   { href: "/#recursos", label: "Recursos" },
   { href: "/#sobre", label: "Sobre" },
   { href: "/loja", label: "Loja" },
-  { href: "/#comunidade", label: "Comunidade" },
+  { href: "/#chat", label: "Fale com a doutora" },
   { href: "/#duvidas", label: "Dúvidas" },
 ];
 

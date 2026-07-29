@@ -8,6 +8,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   name text,
+  email text,
   is_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -21,8 +22,8 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name)
-  values (new.id, new.raw_user_meta_data ->> 'name');
+  insert into public.profiles (id, name, email)
+  values (new.id, new.raw_user_meta_data ->> 'name', new.email);
   return new;
 end;
 $$;
@@ -47,6 +48,13 @@ $$;
 create policy "Profiles are viewable by owner or admin"
   on public.profiles for select
   using (auth.uid() = id or public.is_admin());
+
+-- Community posts show the author's name to every signed-in reader, not
+-- just to the profile owner/admin — this policy is additive to the one
+-- above (RLS policies are OR'd), it doesn't replace it.
+create policy "Signed-in users can view basic profile info"
+  on public.profiles for select
+  using (auth.uid() is not null);
 
 create policy "Only admin can update profiles"
   on public.profiles for update
@@ -98,6 +106,7 @@ create table if not exists public.purchases (
   user_id uuid not null references public.profiles (id) on delete cascade,
   content_id uuid not null references public.contents (id) on delete cascade,
   progress integer not null default 0 check (progress between 0 and 100),
+  completed_at timestamptz,
   purchased_at timestamptz not null default now(),
   unique (user_id, content_id)
 );
@@ -110,9 +119,13 @@ create policy "Users see own purchases, admin sees all"
   on public.purchases for select
   using (auth.uid() = user_id or public.is_admin());
 
-create policy "Users can create own purchases"
+create policy "Users can create own purchases, admin can grant any"
   on public.purchases for insert
-  with check (auth.uid() = user_id);
+  with check (auth.uid() = user_id or public.is_admin());
+
+create policy "Only admin can revoke a purchase"
+  on public.purchases for delete
+  using (public.is_admin());
 
 create policy "Users can update own purchase progress"
   on public.purchases for update
@@ -180,3 +193,105 @@ create policy "Only admin can upload source pdfs"
 create policy "Only admin can delete source pdfs"
   on storage.objects for delete
   using (bucket_id = 'content-pdfs' and public.is_admin());
+
+-- Conversas ----------------------------------------------------------------
+-- Canal privado entre uma aluna e a Dra. Nathalia (admin), um por conteúdo
+-- comprado. Não é um fórum público — só a própria aluna e o admin veem.
+create or replace function public.has_content_access(cid uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select public.is_admin() or exists (
+    select 1 from public.purchases
+    where purchases.content_id = cid and purchases.user_id = auth.uid()
+  );
+$$;
+
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  content_id uuid not null references public.contents (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  -- Read markers, one per side of the conversation. Default far in the past
+  -- so a freshly created conversation's first message counts as unread for
+  -- whichever side didn't send it.
+  user_last_read_at timestamptz not null default '-infinity',
+  admin_last_read_at timestamptz not null default '-infinity',
+  unique (user_id, content_id)
+);
+
+alter table public.conversations enable row level security;
+
+create policy "Owner or admin can read a conversation"
+  on public.conversations for select
+  using (auth.uid() = user_id or public.is_admin());
+
+create policy "Users with access to the content can start a conversation"
+  on public.conversations for insert
+  with check (auth.uid() = user_id and public.has_content_access(content_id));
+
+-- Security definer so it can update the read marker without a broad UPDATE
+-- policy on the table; it still only touches the caller's own side.
+create or replace function public.mark_conversation_read(cid uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.conversations
+  set
+    user_last_read_at = case when user_id = auth.uid() then now() else user_last_read_at end,
+    admin_last_read_at = case when public.is_admin() then now() else admin_last_read_at end
+  where id = cid
+  and (user_id = auth.uid() or public.is_admin());
+end;
+$$;
+
+create table if not exists public.conversation_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  sender_id uuid not null references public.profiles (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists conversation_messages_conversation_id_idx
+  on public.conversation_messages (conversation_id, created_at);
+
+alter table public.conversation_messages enable row level security;
+
+create policy "Owner or admin can read messages"
+  on public.conversation_messages for select
+  using (
+    exists (
+      select 1 from public.conversations
+      where conversations.id = conversation_messages.conversation_id
+      and (conversations.user_id = auth.uid() or public.is_admin())
+    )
+  );
+
+create policy "Owner or admin can send messages"
+  on public.conversation_messages for insert
+  with check (
+    auth.uid() = sender_id
+    and exists (
+      select 1 from public.conversations
+      where conversations.id = conversation_messages.conversation_id
+      and (conversations.user_id = auth.uid() or public.is_admin())
+    )
+  );
+
+-- Lets the chat push new messages to an open thread over websockets instead
+-- of requiring a reload. Postgres Changes still enforces the select policy
+-- above per-subscriber, so a client only receives inserts for conversations
+-- they can actually read.
+alter publication supabase_realtime add table public.conversation_messages;
+
+-- Also needed so the admin's unread badges (sidebar total + inbox list) can
+-- react live: new messages bump them, and admin_last_read_at updates (from
+-- opening a thread) clear them, without a page reload.
+alter publication supabase_realtime add table public.conversations;

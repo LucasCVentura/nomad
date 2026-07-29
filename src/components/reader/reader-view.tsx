@@ -2,15 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, PanelRight } from "lucide-react";
+import { ArrowLeft, CheckCircle2, MessageCircle, PanelRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
   getParagraphSegments,
@@ -24,7 +17,10 @@ import {
   type PendingSelection,
 } from "@/components/reader/selection-toolbar";
 import { AnnotationsPanel } from "@/components/reader/annotations-panel";
+import { SidePanel } from "@/components/reader/side-panel";
+import { ChatThread, type ChatMessage } from "@/components/chat/chat-thread";
 import { createClient } from "@/lib/supabase/client";
+import { useConversationUnread } from "@/lib/use-conversation-unread";
 import type { ContentBlock } from "@/lib/supabase/types";
 
 export function ReaderView({
@@ -32,12 +28,32 @@ export function ReaderView({
   blocks,
   contentId,
   backHref = "/app",
+  chat,
+  initialCompleted = false,
 }: {
   content: { title: string; category: string };
   blocks: ContentBlock[];
   contentId?: string;
   backHref?: string;
+  chat?: {
+    conversationId: string | null;
+    currentUserId: string;
+    initialMessages: ChatMessage[];
+    unreadCount: number;
+  };
+  initialCompleted?: boolean;
 }) {
+  // Owned here (not just passed straight through) so it survives the chat
+  // panel unmounting on close — otherwise the first message a student ever
+  // sends creates a conversation the panel then "forgets" the moment it's
+  // reopened, and a second send tries to create a duplicate conversation
+  // row and fails outright on the unique constraint.
+  const [conversationId, setConversationId] = useState(chat?.conversationId ?? null);
+  const chatUnread = useConversationUnread(
+    conversationId,
+    chat?.currentUserId ?? "",
+    chat?.unreadCount ?? 0
+  );
   // Only paragraph blocks are annotatable; each gets a stable sequential id.
   const paragraphMeta = useMemo(() => {
     const byBlockIndex = new Map<number, { id: string; index: number; text: string }>();
@@ -60,9 +76,13 @@ export function ReaderView({
   } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [completed, setCompleted] = useState(initialCompleted);
+  const [annotationsOpen, setAnnotationsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const articleRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const annotationsByParagraph = useMemo(() => {
     const map = new Map<string, Annotation[]>();
@@ -74,29 +94,29 @@ export function ReaderView({
     return map;
   }, [annotations]);
 
+  // Percentage of the content actually scrolled, measured against its own
+  // scroll container (not the window) — the reader area scrolls internally
+  // so annotations/chat can sit beside it instead of covering it.
   useEffect(() => {
-    const seen = new Set<number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const index = Number(
-            (entry.target as HTMLElement).dataset.paragraphIndex
-          );
-          seen.add(index);
-        }
-        const furthest = Math.max(0, ...Array.from(seen)) + 1;
-        setProgress(
-          paragraphMeta.total ? Math.round((furthest / paragraphMeta.total) * 100) : 0
-        );
-      },
-      { rootMargin: "0px 0px -60% 0px", threshold: 0 }
-    );
-
-    const nodes = articleRef.current?.querySelectorAll("[data-paragraph-index]");
-    nodes?.forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
-  }, [paragraphMeta.total, blocks]);
+    const el = scrollRef.current;
+    if (!el) return;
+    function updateProgress() {
+      if (!el) return;
+      const scrollable = el.scrollHeight - el.clientHeight;
+      const pct =
+        scrollable <= 0
+          ? 100
+          : Math.min(100, Math.max(0, Math.round((el.scrollTop / scrollable) * 100)));
+      setProgress(pct);
+    }
+    updateProgress();
+    el.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress);
+    return () => {
+      el.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
+  }, [blocks]);
 
   // Persist reading progress so it survives across sessions and shows up
   // on the student dashboard. Debounced to avoid writing on every scroll tick.
@@ -116,6 +136,21 @@ export function ReaderView({
     }, 1500);
     return () => window.clearTimeout(timeout);
   }, [progress, contentId]);
+
+  async function markCompleted() {
+    if (!contentId || completed) return;
+    setCompleted(true);
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase
+      .from("purchases")
+      .update({ completed_at: new Date().toISOString() })
+      .eq("user_id", session.user.id)
+      .eq("content_id", contentId);
+  }
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
@@ -264,17 +299,9 @@ export function ReaderView({
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
   }
 
-  const panel = (
-    <AnnotationsPanel
-      annotations={annotations}
-      onJumpTo={jumpTo}
-      onDelete={deleteAnnotation}
-    />
-  );
-
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur sm:px-6">
+    <div className="flex h-screen flex-col">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href={backHref}
@@ -286,176 +313,234 @@ export function ReaderView({
             {content.title}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <div className="hidden items-center gap-2 sm:flex">
             <Progress value={progress} className="w-28" />
             <span className="text-xs text-muted-foreground">{progress}%</span>
           </div>
-          <Sheet>
-            <SheetTrigger render={<Button variant="outline" size="sm" />}>
-              <PanelRight className="size-4" />
-              Anotações
-              {annotations.length > 0 && (
+          {completed ? (
+            <span className="flex items-center gap-1.5 text-xs text-rose">
+              <CheckCircle2 className="size-4" />
+              <span className="hidden sm:inline">Concluído</span>
+            </span>
+          ) : (
+            progress === 100 && (
+              <Button
+                size="sm"
+                className="bg-rose text-rose-foreground hover:bg-rose/90"
+                onClick={markCompleted}
+              >
+                <CheckCircle2 className="size-4" />
+                <span className="hidden sm:inline">Marcar como concluído</span>
+              </Button>
+            )
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className={annotationsOpen ? "border-rose text-rose" : ""}
+            onClick={() => setAnnotationsOpen((v) => !v)}
+          >
+            <PanelRight className="size-4" />
+            <span className="hidden sm:inline">Anotações</span>
+            {annotations.length > 0 && (
+              <span className="flex size-4 items-center justify-center rounded-full bg-rose text-[10px] text-rose-foreground">
+                {annotations.length}
+              </span>
+            )}
+          </Button>
+          {chat && contentId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={chatOpen ? "border-rose text-rose" : ""}
+              onClick={() => setChatOpen((v) => !v)}
+            >
+              <MessageCircle className="size-4" />
+              <span className="hidden sm:inline">Falar com a Dra. Nathalia</span>
+              {chatUnread > 0 && (
                 <span className="flex size-4 items-center justify-center rounded-full bg-rose text-[10px] text-rose-foreground">
-                  {annotations.length}
+                  {chatUnread}
                 </span>
               )}
-            </SheetTrigger>
-            <SheetContent side="right" className="w-5/6 sm:w-96">
-              <SheetHeader>
-                <SheetTitle>Minhas anotações</SheetTitle>
-              </SheetHeader>
-              <div className="overflow-y-auto px-4 pb-4">{panel}</div>
-            </SheetContent>
-          </Sheet>
+            </Button>
+          )}
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
-        <article
-          ref={articleRef}
-          className="rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.85] text-[oklch(0.88_0.015_75)] sm:p-12"
-        >
-          <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-            {content.category}
-          </span>
-          <h1 className="mt-1.5 font-heading text-3xl text-foreground">
-            {content.title}
-          </h1>
-          <p className="mt-6 text-sm text-muted-foreground">
-            <span className="hidden sm:inline">
-              Selecione qualquer trecho abaixo pra grifar ou adicionar uma
-              anotação.
-            </span>
-            <span className="sm:hidden">
-              Toque numa frase pra selecionar — toque em outra pra estender
-              o trecho.
-            </span>
-          </p>
+      <div className="flex flex-1 overflow-hidden">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-6 py-12">
+            <article
+              ref={articleRef}
+              className="rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.85] text-[oklch(0.88_0.015_75)] sm:p-12"
+            >
+              <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
+                {content.category}
+              </span>
+              <h1 className="mt-1.5 font-heading text-3xl text-foreground">
+                {content.title}
+              </h1>
+              <p className="mt-6 text-sm text-muted-foreground">
+                <span className="hidden sm:inline">
+                  Selecione qualquer trecho abaixo pra grifar ou adicionar uma
+                  anotação.
+                </span>
+                <span className="sm:hidden">
+                  Toque numa frase pra selecionar — toque em outra pra estender
+                  o trecho.
+                </span>
+              </p>
 
-          <div className="mt-8 space-y-7">
-            {blocks.map((block, blockIndex) => {
-              if (block.type === "heading") {
-                return (
-                  <h2 key={blockIndex} className="font-heading text-xl text-foreground">
-                    {block.text}
-                  </h2>
-                );
-              }
+              <div className="mt-8 space-y-7">
+                {blocks.map((block, blockIndex) => {
+                  if (block.type === "heading") {
+                    return (
+                      <h2 key={blockIndex} className="font-heading text-xl text-foreground">
+                        {block.text}
+                      </h2>
+                    );
+                  }
 
-              if (block.type === "image") {
-                return (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={blockIndex}
-                    src={block.url}
-                    alt={block.alt ?? ""}
-                    className="w-full rounded-xl border border-border/60"
-                  />
-                );
-              }
+                  if (block.type === "image") {
+                    return (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={blockIndex}
+                        src={block.url}
+                        alt={block.alt ?? ""}
+                        className="w-full rounded-xl border border-border/60"
+                      />
+                    );
+                  }
 
-              const meta = paragraphMeta.byBlockIndex.get(blockIndex)!;
-              const anns = annotationsByParagraph.get(meta.id) ?? [];
-              const segments = getParagraphSegments(block.text, anns);
+                  const meta = paragraphMeta.byBlockIndex.get(blockIndex)!;
+                  const anns = annotationsByParagraph.get(meta.id) ?? [];
+                  const segments = getParagraphSegments(block.text, anns);
 
-              const pendingHere =
-                pending && pending.paragraphId === meta.id ? pending : null;
-              const mobileSegments = getParagraphSegments(
-                block.text,
-                pendingHere
-                  ? [
-                      ...anns,
-                      {
-                        id: "__pending__",
-                        paragraphId: meta.id,
-                        start: pendingHere.start,
-                        end: pendingHere.end,
-                        text: pendingHere.text,
-                      },
-                    ]
-                  : anns
-              );
+                  const pendingHere =
+                    pending && pending.paragraphId === meta.id ? pending : null;
+                  const mobileSegments = getParagraphSegments(
+                    block.text,
+                    pendingHere
+                      ? [
+                          ...anns,
+                          {
+                            id: "__pending__",
+                            paragraphId: meta.id,
+                            start: pendingHere.start,
+                            end: pendingHere.end,
+                            text: pendingHere.text,
+                          },
+                        ]
+                      : anns
+                  );
 
-              return (
-                <div key={blockIndex}>
-                  {/* Desktop: native drag-to-select */}
-                  <p
-                    data-paragraph-id={meta.id}
-                    data-paragraph-index={meta.index}
-                    className="hidden select-text sm:block"
-                  >
-                    {segments.map((segment, i) =>
-                      segment.annotation ? (
-                        <mark
-                          key={i}
-                          className={`rounded-sm px-0.5 text-foreground transition-shadow ${
-                            segment.annotation.note ? "bg-gold/30" : "bg-rose/30"
-                          } ${
-                            activeId === segment.annotation.id
-                              ? "ring-2 ring-rose"
-                              : ""
-                          }`}
-                        >
-                          {segment.text}
-                        </mark>
-                      ) : (
-                        <span key={i}>{segment.text}</span>
-                      )
-                    )}
-                  </p>
-
-                  {/* Mobile: tap-a-sentence, no native selection involved */}
-                  <p
-                    data-paragraph-id={meta.id}
-                    data-paragraph-index={meta.index}
-                    className="select-none sm:hidden"
-                  >
-                    {mobileSegments.map((segment, i) => {
-                      if (segment.annotation) {
-                        const isPending = segment.annotation.id === "__pending__";
-                        return (
-                          <mark
-                            key={i}
-                            className={`rounded-sm px-0.5 text-foreground ${
-                              isPending
-                                ? "bg-rose/20 outline-dashed outline-1 outline-rose/60"
-                                : segment.annotation.note
-                                  ? "bg-gold/30"
-                                  : "bg-rose/30"
-                            } ${
-                              activeId === segment.annotation.id
-                                ? "ring-2 ring-rose"
-                                : ""
-                            }`}
-                          >
-                            {segment.text}
-                          </mark>
-                        );
-                      }
-                      const sentences = tokenizeSentences(segment.text, segment.start);
-                      return (
-                        <span key={i}>
-                          {sentences.map((sentence, j) => (
-                            <span
-                              key={j}
-                              onClick={() =>
-                                handleSentenceTap(meta.id, block.text, sentence.start, sentence.end)
-                              }
-                              className="active:bg-muted"
+                  return (
+                    <div key={blockIndex}>
+                      {/* Desktop: native drag-to-select */}
+                      <p
+                        data-paragraph-id={meta.id}
+                        data-paragraph-index={meta.index}
+                        className="hidden select-text sm:block"
+                      >
+                        {segments.map((segment, i) =>
+                          segment.annotation ? (
+                            <mark
+                              key={i}
+                              className={`rounded-sm px-0.5 text-foreground transition-shadow ${
+                                segment.annotation.note ? "bg-gold/30" : "bg-rose/30"
+                              } ${
+                                activeId === segment.annotation.id
+                                  ? "ring-2 ring-rose"
+                                  : ""
+                              }`}
                             >
-                              {sentence.text}
+                              {segment.text}
+                            </mark>
+                          ) : (
+                            <span key={i}>{segment.text}</span>
+                          )
+                        )}
+                      </p>
+
+                      {/* Mobile: tap-a-sentence, no native selection involved */}
+                      <p
+                        data-paragraph-id={meta.id}
+                        data-paragraph-index={meta.index}
+                        className="select-none sm:hidden"
+                      >
+                        {mobileSegments.map((segment, i) => {
+                          if (segment.annotation) {
+                            const isPending = segment.annotation.id === "__pending__";
+                            return (
+                              <mark
+                                key={i}
+                                className={`rounded-sm px-0.5 text-foreground ${
+                                  isPending
+                                    ? "bg-rose/20 outline-dashed outline-1 outline-rose/60"
+                                    : segment.annotation.note
+                                      ? "bg-gold/30"
+                                      : "bg-rose/30"
+                                } ${
+                                  activeId === segment.annotation.id
+                                    ? "ring-2 ring-rose"
+                                    : ""
+                                }`}
+                              >
+                                {segment.text}
+                              </mark>
+                            );
+                          }
+                          const sentences = tokenizeSentences(segment.text, segment.start);
+                          return (
+                            <span key={i}>
+                              {sentences.map((sentence, j) => (
+                                <span
+                                  key={j}
+                                  onClick={() =>
+                                    handleSentenceTap(meta.id, block.text, sentence.start, sentence.end)
+                                  }
+                                  className="active:bg-muted"
+                                >
+                                  {sentence.text}
+                                </span>
+                              ))}
                             </span>
-                          ))}
-                        </span>
-                      );
-                    })}
-                  </p>
-                </div>
-              );
-            })}
+                          );
+                        })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </article>
           </div>
-        </article>
+        </div>
+
+        {annotationsOpen && (
+          <SidePanel title="Minhas anotações" onClose={() => setAnnotationsOpen(false)}>
+            <AnnotationsPanel
+              annotations={annotations}
+              onJumpTo={jumpTo}
+              onDelete={deleteAnnotation}
+            />
+          </SidePanel>
+        )}
+
+        {chatOpen && chat && contentId && (
+          <SidePanel title="Dra. Nathalia" onClose={() => setChatOpen(false)}>
+            <ChatThread
+              conversationId={conversationId}
+              contentId={contentId}
+              currentUserId={chat.currentUserId}
+              otherPartyName="Dra. Nathalia"
+              initialMessages={chat.initialMessages}
+              emptyStateLabel="Envie sua primeira mensagem para a Dra. Nathalia sobre este curso."
+              onConversationCreated={setConversationId}
+            />
+          </SidePanel>
+        )}
       </div>
 
       {pending && (

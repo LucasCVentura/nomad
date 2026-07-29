@@ -1,38 +1,34 @@
+import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { LojaGrid, type LojaItem } from "@/components/loja-grid";
 import { createClient } from "@/lib/supabase/server";
 
+// This is the public showcase — anyone can browse it, logged in or not.
+// But if someone signed in lands here (an old link, the marketing nav...),
+// send her to the real store at /app/loja instead: this page uses the
+// logged-out marketing header, which has no session-aware chrome at all
+// (no avatar, "Entrar"/"Criar conta" always shown) and reads as "you got
+// logged out" even though the session is still fine.
 export default async function LojaPage() {
   const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  // getSession() (cookie-only, no Auth network round-trip) runs alongside
-  // the contents query instead of blocking it first.
-  const [
-    {
-      data: { session },
-    },
-    { data: contents },
-  ] = await Promise.all([
-    supabase.auth.getSession(),
-    supabase
-      .from("contents")
-      .select("id, slug, title, category, format, pages, price, description")
-      .eq("status", "published")
-      .order("created_at", { ascending: false }),
-  ]);
+  if (session) {
+    redirect("/app/loja");
+  }
 
-  const user = session?.user ?? null;
-
-  const { data: purchases } = user
-    ? await supabase.from("purchases").select("content_id").eq("user_id", user.id)
-    : { data: null };
-
-  const purchasedIds = new Set((purchases ?? []).map((p) => p.content_id));
+  const { data: contents } = await supabase
+    .from("contents")
+    .select("id, slug, title, category, format, pages, price, description")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
 
   const items: LojaItem[] = (contents ?? []).map((item) => ({
     ...item,
-    purchased: purchasedIds.has(item.id),
+    purchased: false,
   }));
 
   return (
@@ -54,7 +50,7 @@ export default async function LojaPage() {
             estudar direto na plataforma.
           </p>
 
-          <LojaGrid items={items} isLoggedIn={Boolean(user)} />
+          <LojaGrid items={items} isLoggedIn={false} />
         </div>
       </main>
 

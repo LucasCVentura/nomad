@@ -40,7 +40,7 @@ export function LojaGrid({
 
   async function handleBuy(item: LojaItem) {
     if (!isLoggedIn) {
-      router.push("/registro?next=/loja");
+      router.push("/registro?next=/app/loja");
       return;
     }
     setPendingId(item.id);
@@ -50,7 +50,7 @@ export function LojaGrid({
     } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) {
-      router.push("/entrar?next=/loja");
+      router.push("/entrar?next=/app/loja");
       return;
     }
     const { error } = await supabase

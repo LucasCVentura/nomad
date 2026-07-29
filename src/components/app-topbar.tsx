@@ -50,7 +50,7 @@ export function AppTopbar() {
           <Link href="/app" className="hover:text-foreground">
             Conteúdos
           </Link>
-          <Link href="/loja" className="hover:text-foreground">
+          <Link href="/app/loja" className="hover:text-foreground">
             Loja
           </Link>
         </nav>

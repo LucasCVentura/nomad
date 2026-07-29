@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, ArrowRight } from "lucide-react";
+import { FileText, ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { createClient } from "@/lib/supabase/server";
@@ -17,13 +17,38 @@ export default async function AppPage() {
     redirect("/entrar?next=/app");
   }
 
-  const { data: purchases } = await supabase
-    .from("purchases")
-    .select("progress, contents(slug, title, category)")
-    .eq("user_id", session.user.id)
-    .order("purchased_at", { ascending: false });
+  const [{ data: purchases }, { data: conversations }] = await Promise.all([
+    supabase
+      .from("purchases")
+      .select("progress, completed_at, contents(id, slug, title, category)")
+      .eq("user_id", session.user.id)
+      .order("purchased_at", { ascending: false }),
+    supabase
+      .from("conversations")
+      .select("id, content_id, user_last_read_at")
+      .eq("user_id", session.user.id),
+  ]);
 
   const items = purchases ?? [];
+
+  const conversationIds = (conversations ?? []).map((c) => c.id);
+  const { data: messages } = conversationIds.length
+    ? await supabase
+        .from("conversation_messages")
+        .select("conversation_id, sender_id, created_at")
+        .in("conversation_id", conversationIds)
+    : { data: [] };
+
+  const contentHasReply = new Set<string>();
+  for (const conv of conversations ?? []) {
+    const hasUnread = (messages ?? []).some(
+      (m) =>
+        m.conversation_id === conv.id &&
+        m.sender_id !== session.user.id &&
+        m.created_at > conv.user_last_read_at
+    );
+    if (hasUnread) contentHasReply.add(conv.content_id);
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -36,6 +61,7 @@ export default async function AppPage() {
         {items.map((item) => {
           const content = item.contents;
           if (!content) return null;
+          const completed = Boolean(item.completed_at);
           return (
             <div
               key={content.slug}
@@ -50,10 +76,19 @@ export default async function AppPage() {
               <h3 className="mt-1.5 font-heading text-lg leading-snug text-foreground">
                 {content.title}
               </h3>
+              {contentHasReply.has(content.id) && (
+                <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-rose/15 px-2 py-0.5 text-[11px] text-rose">
+                  <MessageCircle className="size-3" />
+                  Dra. Nathalia respondeu sua dúvida
+                </span>
+              )}
 
               <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{item.progress === 100 ? "Concluído" : "Progresso"}</span>
+                  <span className={completed ? "flex items-center gap-1 text-rose" : ""}>
+                    {completed && <CheckCircle2 className="size-3.5" />}
+                    {completed ? "Concluído" : "Progresso"}
+                  </span>
                   <span>{item.progress}%</span>
                 </div>
                 <Progress value={item.progress ?? 0} />
@@ -66,7 +101,7 @@ export default async function AppPage() {
                 render={<Link href={`/app/ler/${content.slug}`} />}
                 nativeButton={false}
               >
-                {item.progress === 100 ? "Ler novamente" : "Continuar lendo"}
+                {completed ? "Ler novamente" : "Continuar lendo"}
                 <ArrowRight className="size-3.5" />
               </Button>
             </div>
@@ -74,7 +109,7 @@ export default async function AppPage() {
         })}
 
         <Link
-          href="/loja"
+          href="/app/loja"
           className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/60 p-5 text-center text-muted-foreground transition-colors hover:border-rose/40 hover:text-foreground"
         >
           <span className="font-heading text-lg">+ Explorar a loja</span>

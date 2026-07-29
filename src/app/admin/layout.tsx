@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAdminUnreadTotal } from "@/lib/conversations";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { AdminTopbar } from "@/components/admin-topbar";
 
@@ -37,9 +38,11 @@ export default async function AdminLayout({
     redirect("/app");
   }
 
+  const unreadCount = await getAdminUnreadTotal(supabase);
+
   return (
     <div className="flex flex-1">
-      <AdminSidebar />
+      <AdminSidebar unreadCount={unreadCount} />
       <div className="flex flex-1 flex-col">
         <AdminTopbar />
         <main className="flex-1 px-6 py-8">{children}</main>

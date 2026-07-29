@@ -9,7 +9,7 @@ export function SiteFooter() {
         <div>
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-            Materiais de estudo e comunidade criados pela Dra. Nathalia pra
+            Materiais de estudo e atendimento direto com a Dra. Nathalia pra
             profissionais de estética.
           </p>
           <a
@@ -41,8 +41,8 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <a href="/#comunidade" className="hover:text-foreground">
-                Comunidade
+              <a href="/#chat" className="hover:text-foreground">
+                Fale com a doutora
               </a>
             </li>
           </ul>

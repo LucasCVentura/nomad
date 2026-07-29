@@ -108,21 +108,105 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          admin_last_read_at: string
+          content_id: string
+          created_at: string
+          id: string
+          user_id: string
+          user_last_read_at: string
+        }
+        Insert: {
+          admin_last_read_at?: string
+          content_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+          user_last_read_at?: string
+        }
+        Update: {
+          admin_last_read_at?: string
+          content_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          user_last_read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
+          email: string | null
           id: string
           is_admin: boolean
           name: string | null
         }
         Insert: {
           created_at?: string
+          email?: string | null
           id: string
           is_admin?: boolean
           name?: string | null
         }
         Update: {
           created_at?: string
+          email?: string | null
           id?: string
           is_admin?: boolean
           name?: string | null
@@ -131,6 +215,7 @@ export type Database = {
       }
       purchases: {
         Row: {
+          completed_at: string | null
           content_id: string
           id: string
           progress: number
@@ -138,6 +223,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          completed_at?: string | null
           content_id: string
           id?: string
           progress?: number
@@ -145,6 +231,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          completed_at?: string | null
           content_id?: string
           id?: string
           progress?: number
@@ -173,7 +260,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_content_access: { Args: { cid: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      mark_conversation_read: { Args: { cid: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

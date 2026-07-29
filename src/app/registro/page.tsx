@@ -7,6 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
@@ -99,10 +100,9 @@ export default function RegistroPage() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Senha</Label>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             placeholder="••••••••"
             minLength={6}
             required
