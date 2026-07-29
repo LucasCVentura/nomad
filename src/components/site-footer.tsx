@@ -75,14 +75,14 @@ export function SiteFooter() {
           </p>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
-              <a href="#" className="hover:text-foreground">
+              <Link href="/termos" className="hover:text-foreground">
                 Termos de uso
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="#" className="hover:text-foreground">
+              <Link href="/privacidade" className="hover:text-foreground">
                 Privacidade
-              </a>
+              </Link>
             </li>
           </ul>
         </div>

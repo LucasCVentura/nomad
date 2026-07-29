@@ -117,6 +117,17 @@ export default function RegistroPage() {
           {loading ? "Criando..." : "Criar conta grátis"}
           <ArrowRight className="size-4" />
         </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          Ao criar sua conta, você concorda com os{" "}
+          <Link href="/termos" className="text-rose hover:underline">
+            Termos de Uso
+          </Link>{" "}
+          e a{" "}
+          <Link href="/privacidade" className="text-rose hover:underline">
+            Política de Privacidade
+          </Link>
+          .
+        </p>
       </form>
     </AuthShell>
   );
