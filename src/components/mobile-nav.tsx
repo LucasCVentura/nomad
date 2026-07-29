@@ -32,7 +32,7 @@ export function MobileNav() {
       <SheetContent side="right" className="w-4/5">
         <SheetHeader>
           <SheetTitle>
-            Nomad<span className="text-rose">.</span>
+            NF Academy<span className="text-rose">.</span>
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 px-4">

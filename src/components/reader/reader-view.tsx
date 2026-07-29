@@ -414,6 +414,21 @@ export function ReaderView({
                     );
                   }
 
+                  if (block.type === "video") {
+                    return (
+                      <div key={blockIndex} className="space-y-2">
+                        <video
+                          src={block.url}
+                          controls
+                          className="w-full rounded-xl border border-border/60"
+                        />
+                        {block.caption && (
+                          <p className="text-sm text-muted-foreground">{block.caption}</p>
+                        )}
+                      </div>
+                    );
+                  }
+
                   const meta = paragraphMeta.byBlockIndex.get(blockIndex)!;
                   const anns = annotationsByParagraph.get(meta.id) ?? [];
                   const segments = getParagraphSegments(block.text, anns);

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
+import { FileText, ArrowRight, CheckCircle2, MessageCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +20,9 @@ export default async function AppPage() {
   const [{ data: purchases }, { data: conversations }] = await Promise.all([
     supabase
       .from("purchases")
-      .select("progress, completed_at, contents(id, slug, title, category)")
+      .select(
+        "progress, completed_at, updated_seen_at, contents(id, slug, title, category, cover_image_url, updated_at)"
+      )
       .eq("user_id", session.user.id)
       .order("purchased_at", { ascending: false }),
     supabase
@@ -62,13 +64,23 @@ export default async function AppPage() {
           const content = item.contents;
           if (!content) return null;
           const completed = Boolean(item.completed_at);
+          const wasUpdated = content.updated_at > item.updated_seen_at;
           return (
             <div
               key={content.slug}
               className="flex flex-col rounded-2xl border border-border/60 bg-card p-5"
             >
-              <div className="mb-4 flex aspect-4/3 items-center justify-center rounded-lg bg-linear-to-br from-gold/15 to-rose/15">
-                <FileText className="size-8 text-gold" />
+              <div className="mb-4 flex aspect-4/3 items-center justify-center overflow-hidden rounded-lg bg-linear-to-br from-gold/15 to-rose/15">
+                {content.cover_image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={content.cover_image_url}
+                    alt={content.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <FileText className="size-8 text-gold" />
+                )}
               </div>
               <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
                 {content.category}
@@ -80,6 +92,12 @@ export default async function AppPage() {
                 <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-rose/15 px-2 py-0.5 text-[11px] text-rose">
                   <MessageCircle className="size-3" />
                   Dra. Nathalia respondeu sua dúvida
+                </span>
+              )}
+              {wasUpdated && (
+                <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] text-gold">
+                  <RefreshCw className="size-3" />
+                  Conteúdo atualizado
                 </span>
               )}
 

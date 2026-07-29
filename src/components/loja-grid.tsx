@@ -17,6 +17,7 @@ export type LojaItem = {
   price: number;
   description: string | null;
   purchased: boolean;
+  coverImageUrl: string | null;
 };
 
 export function LojaGrid({
@@ -95,8 +96,17 @@ export function LojaGrid({
             key={item.slug}
             className="flex flex-col rounded-2xl border border-border/60 bg-card p-5"
           >
-            <div className="mb-4 flex aspect-4/3 items-center justify-center rounded-lg bg-linear-to-br from-gold/15 to-rose/15">
-              <FileText className="size-8 text-gold" />
+            <div className="mb-4 flex aspect-4/3 items-center justify-center overflow-hidden rounded-lg bg-linear-to-br from-gold/15 to-rose/15">
+              {item.coverImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.coverImageUrl}
+                  alt={item.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <FileText className="size-8 text-gold" />
+              )}
             </div>
             <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
               {item.category}

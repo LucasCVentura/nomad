@@ -107,6 +107,10 @@ create table if not exists public.purchases (
   content_id uuid not null references public.contents (id) on delete cascade,
   progress integer not null default 0 check (progress between 0 and 100),
   completed_at timestamptz,
+  -- Compared against contents.updated_at to show an "atualizado" badge —
+  -- defaults to now() so pre-existing purchases don't retroactively flag
+  -- as updated for edits that happened before this column existed.
+  updated_seen_at timestamptz not null default now(),
   purchased_at timestamptz not null default now(),
   unique (user_id, content_id)
 );
@@ -156,10 +160,18 @@ create policy "Users manage their own annotations"
   with check (auth.uid() = user_id);
 
 -- Storage ---------------------------------------------------------------------
--- content-images: imagens extraídas dos PDFs, públicas (aparecem no leitor).
+-- content-images: imagens extraídas dos PDFs e capas de curso, públicas
+-- (aparecem no leitor e na loja, inclusive pra quem não comprou ainda).
+-- content-videos: vídeos anexados a um conteúdo, também públicos pelo mesmo
+-- motivo — mesma lógica já aceita pras imagens (a URL não é divulgada fora
+-- do conteúdo em si).
 -- content-pdfs: os PDFs originais enviados, privados (só a admin acessa).
 insert into storage.buckets (id, name, public)
 values ('content-images', 'content-images', true)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('content-videos', 'content-videos', true, 524288000)
 on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public)
@@ -181,6 +193,22 @@ create policy "Only admin can update content images"
 create policy "Only admin can delete content images"
   on storage.objects for delete
   using (bucket_id = 'content-images' and public.is_admin());
+
+create policy "Public read of content videos"
+  on storage.objects for select
+  using (bucket_id = 'content-videos');
+
+create policy "Only admin can upload content videos"
+  on storage.objects for insert
+  with check (bucket_id = 'content-videos' and public.is_admin());
+
+create policy "Only admin can update content videos"
+  on storage.objects for update
+  using (bucket_id = 'content-videos' and public.is_admin());
+
+create policy "Only admin can delete content videos"
+  on storage.objects for delete
+  using (bucket_id = 'content-videos' and public.is_admin());
 
 create policy "Only admin can access source pdfs"
   on storage.objects for select

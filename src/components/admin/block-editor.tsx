@@ -3,14 +3,18 @@
 import { ArrowDown, ArrowUp, Heading, Pilcrow, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/supabase/types";
 
+// Video blocks are managed in their own section (VideoAttachmentsField),
+// always appended after saving — they never pass through here.
+export type EditableBlock = Exclude<ContentBlock, { type: "video" }>;
+
 export function BlockEditor({
   blocks,
   onChange,
 }: {
-  blocks: ContentBlock[];
-  onChange: (blocks: ContentBlock[]) => void;
+  blocks: EditableBlock[];
+  onChange: (blocks: EditableBlock[]) => void;
 }) {
-  function updateBlock(index: number, block: ContentBlock) {
+  function updateBlock(index: number, block: EditableBlock) {
     const next = [...blocks];
     next[index] = block;
     onChange(next);

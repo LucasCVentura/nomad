@@ -22,12 +22,13 @@ export default async function LojaPage() {
 
   const { data: contents } = await supabase
     .from("contents")
-    .select("id, slug, title, category, format, pages, price, description")
+    .select("id, slug, title, category, format, pages, price, description, cover_image_url")
     .eq("status", "published")
     .order("created_at", { ascending: false });
 
   const items: LojaItem[] = (contents ?? []).map((item) => ({
     ...item,
+    coverImageUrl: item.cover_image_url,
     purchased: false,
   }));
 

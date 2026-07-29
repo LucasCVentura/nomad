@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { BlockEditor } from "@/components/admin/block-editor";
+import { BlockEditor, type EditableBlock } from "@/components/admin/block-editor";
+import { CoverImageField } from "@/components/admin/cover-image-field";
+import { VideoAttachmentsField } from "@/components/admin/video-attachments-field";
 import { convertPdfToBlocks } from "@/lib/pdf-convert";
+import { uploadCoverImage, uploadVideoAttachments, type VideoAttachment } from "@/lib/content-media";
 import { createClient } from "@/lib/supabase/client";
 import { slugify } from "@/lib/utils";
-import type { ContentBlock } from "@/lib/supabase/types";
-
-const categories = ["Facial", "Skincare", "Procedimentos", "Fundamentos"];
+import { CONTENT_CATEGORIES } from "@/lib/categories";
 
 type Step = "form" | "processing" | "review" | "publishing";
 
@@ -26,10 +27,12 @@ export default function NovoConteudoPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState(categories[0]);
+  const [category, setCategory] = useState(CONTENT_CATEGORIES[0]);
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
-  const [blocks, setBlocks] = useState<ContentBlock[]>([]);
+  const [blocks, setBlocks] = useState<EditableBlock[]>([]);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [videos, setVideos] = useState<VideoAttachment[]>([]);
 
   async function handleProcess(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +46,7 @@ export default function NovoConteudoPage() {
       const result = await convertPdfToBlocks(file, (page, total) =>
         setProgress({ page, total })
       );
-      setBlocks(result);
+      setBlocks(result as EditableBlock[]);
       setStep("review");
     } catch (err) {
       console.error(err);
@@ -66,7 +69,7 @@ export default function NovoConteudoPage() {
           .upload(`${slug}/original.pdf`, file, { upsert: true });
       }
 
-      const finalBlocks: ContentBlock[] = [];
+      const finalBlocks: EditableBlock[] = [];
       let imageIndex = 0;
       for (const block of blocks) {
         if (block.type !== "image") {
@@ -87,6 +90,9 @@ export default function NovoConteudoPage() {
         finalBlocks.push({ type: "image", url: data.publicUrl });
       }
 
+      const videoBlocks = await uploadVideoAttachments(supabase, slug, videos);
+      const coverImageUrl = await uploadCoverImage(supabase, slug, coverFile);
+
       const pageCount = finalBlocks.filter((b) => b.type === "paragraph").length;
 
       const { error: insertError } = await supabase.from("contents").insert({
@@ -96,8 +102,9 @@ export default function NovoConteudoPage() {
         price: Number(price.replace(",", ".")) || 0,
         description,
         status,
-        body: finalBlocks,
+        body: [...finalBlocks, ...videoBlocks],
         pages: pageCount,
+        cover_image_url: coverImageUrl,
       });
       if (insertError) throw insertError;
 
@@ -201,7 +208,7 @@ export default function NovoConteudoPage() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
               >
-                {categories.map((c) => (
+                {CONTENT_CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -243,6 +250,10 @@ export default function NovoConteudoPage() {
               required
             />
           </div>
+
+          <CoverImageField file={coverFile} onFileChange={setCoverFile} />
+
+          <VideoAttachmentsField videos={videos} onChange={setVideos} />
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

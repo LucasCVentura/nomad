@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nomad — Estética & Conhecimento",
+  title: "NF Academy — Estética & Conhecimento",
   description:
-    "Materiais de estudo em estética profissional: PDFs, cursos e uma comunidade para tirar dúvidas.",
+    "Materiais de estudo em estética profissional escritos pela Dra. Nathalia, com chat direto pra tirar dúvidas.",
 };
 
 export default function RootLayout({

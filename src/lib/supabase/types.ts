@@ -6,7 +6,8 @@ import type { Database } from "@/lib/supabase/database.types";
 export type ContentBlock =
   | { type: "heading"; text: string }
   | { type: "paragraph"; text: string }
-  | { type: "image"; url: string; alt?: string };
+  | { type: "image"; url: string; alt?: string }
+  | { type: "video"; url: string; caption?: string };
 
 export type ContentStatus = "draft" | "published";
 

@@ -17,7 +17,7 @@ export function SiteFooter() {
             className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
             <AtSign className="size-4" />
-            @nomad
+            @nfacademy
           </a>
         </div>
         <div>
@@ -88,7 +88,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="mx-auto mt-12 max-w-6xl border-t border-border/60 pt-6 text-xs text-muted-foreground">
-        &copy; {new Date().getFullYear()} Nomad. Todos os direitos reservados.
+        &copy; {new Date().getFullYear()} NF Academy. Todos os direitos reservados.
       </div>
     </footer>
   );

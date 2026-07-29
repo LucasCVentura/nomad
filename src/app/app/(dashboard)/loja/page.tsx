@@ -16,7 +16,7 @@ export default async function AppLojaPage() {
   const [{ data: contents }, { data: purchases }] = await Promise.all([
     supabase
       .from("contents")
-      .select("id, slug, title, category, format, pages, price, description")
+      .select("id, slug, title, category, format, pages, price, description, cover_image_url")
       .eq("status", "published")
       .order("created_at", { ascending: false }),
     supabase.from("purchases").select("content_id").eq("user_id", session.user.id),
@@ -26,6 +26,7 @@ export default async function AppLojaPage() {
 
   const items: LojaItem[] = (contents ?? []).map((item) => ({
     ...item,
+    coverImageUrl: item.cover_image_url,
     purchased: purchasedIds.has(item.id),
   }));
 

@@ -149,7 +149,7 @@ const faq = [
   {
     question: "Quem produz os conteúdos da plataforma?",
     answer:
-      "Todos os materiais são escritos e revisados pela própria Dra. Nathalia. A Nomad não é uma loja aberta pra outros criadores publicarem conteúdo.",
+      "Todos os materiais são escritos e revisados pela própria Dra. Nathalia. A NF Academy não é uma loja aberta pra outros criadores publicarem conteúdo.",
   },
   {
     question: "Preciso de assinatura pra usar a plataforma?",
@@ -353,7 +353,7 @@ export default function Home() {
                 Especialista em Harmonização Facial e Skincare
               </p>
               <p className="mt-5 max-w-lg leading-relaxed text-muted-foreground">
-                A Nomad não é uma loja aberta pra qualquer criador de
+                A NF Academy não é uma loja aberta pra qualquer criador de
                 conteúdo — todo material é escrito e revisado pela própria
                 Dra. Nathalia, com base na prática real de clínica. Quando
                 você compra um conteúdo aqui, tá aprendendo direto com

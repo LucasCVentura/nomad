@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye, Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 
@@ -63,15 +63,26 @@ export default async function AdminConteudosPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      render={<Link href={`/app/ler/${item.slug}`} />}
-                      nativeButton={false}
-                    >
-                      <Eye className="size-3.5" />
-                      Visualizar
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        render={<Link href={`/admin/conteudos/${item.id}/editar`} />}
+                        nativeButton={false}
+                      >
+                        <Pencil className="size-3.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        render={<Link href={`/app/ler/${item.slug}`} />}
+                        nativeButton={false}
+                      >
+                        <Eye className="size-3.5" />
+                        Visualizar
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

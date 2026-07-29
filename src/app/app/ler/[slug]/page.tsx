@@ -48,6 +48,15 @@ export default async function LerPage({
     redirect("/app/loja");
   }
 
+  // Opening the content she actually bought counts as having seen whatever
+  // update triggered the "conteúdo atualizado" badge on her dashboard.
+  if (purchase) {
+    await supabase
+      .from("purchases")
+      .update({ updated_seen_at: new Date().toISOString() })
+      .eq("id", purchase.id);
+  }
+
   // Reached via the admin-only bypass (no real purchase) → she almost
   // certainly got here from the admin content list, so "back" should
   // return her there instead of to the student dashboard.
