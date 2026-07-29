@@ -21,7 +21,105 @@ import { SidePanel } from "@/components/reader/side-panel";
 import { ChatThread, type ChatMessage } from "@/components/chat/chat-thread";
 import { createClient } from "@/lib/supabase/client";
 import { useConversationUnread } from "@/lib/use-conversation-unread";
-import type { ContentBlock } from "@/lib/supabase/types";
+import type { ContentBlock, PageTextBlock } from "@/lib/supabase/types";
+
+// "page" blocks have no real DOM text to select — a highlight is just a
+// [start,end) range within the paragraph's concatenated text. Walk the
+// line boxes (each already positioned/sized exactly from conversion) and
+// draw one rect per line the range touches, clipped to the covered
+// fraction of that line's width for partial first/last lines.
+function renderPageHighlight(
+  tb: PageTextBlock,
+  range: { start: number; end: number },
+  colorClass: string,
+  key: string
+) {
+  let cursor = 0;
+  const rects: React.ReactNode[] = [];
+  tb.lines.forEach((line, li) => {
+    const lineStart = cursor;
+    const lineEnd = lineStart + line.text.length;
+    cursor = lineEnd;
+    const start = Math.max(range.start, lineStart);
+    const end = Math.min(range.end, lineEnd);
+    if (end <= start || line.text.length === 0) return;
+    const fracStart = (start - lineStart) / line.text.length;
+    const fracEnd = (end - lineStart) / line.text.length;
+    rects.push(
+      <div
+        key={`${key}-${li}`}
+        className={`pointer-events-none absolute rounded-sm ${colorClass}`}
+        style={{
+          left: `${line.xPct + fracStart * line.widthPct}%`,
+          top: `${line.yPct}%`,
+          width: `${(fracEnd - fracStart) * line.widthPct}%`,
+          height: `${line.heightPct}%`,
+        }}
+      />
+    );
+  });
+  return rects;
+}
+
+type WordRange = { start: number; end: number };
+
+// Splits on whitespace, each word keeping its trailing space so re-joining
+// every chunk reproduces the original string — used to snap a raw tap/drag
+// character offset out to a whole-word boundary.
+function tokenizeWords(text: string): WordRange[] {
+  const matches = text.match(/\S+\s*/g) ?? (text ? [text] : []);
+  const words: WordRange[] = [];
+  let cursor = 0;
+  for (const w of matches) {
+    const start = cursor;
+    const end = start + w.length;
+    words.push({ start, end });
+    cursor = end;
+  }
+  return words;
+}
+
+function wordAt(text: string, charOffset: number): WordRange {
+  const words = tokenizeWords(text);
+  return (
+    words.find((w) => charOffset >= w.start && charOffset <= w.end) ?? {
+      start: charOffset,
+      end: charOffset,
+    }
+  );
+}
+
+// Maps a tap/drag point (as a % of the page image) to the nearest line —
+// preferring one the point actually falls inside, falling back to whichever
+// line's vertical center is closest — then estimates a character offset
+// within that line from the point's horizontal fraction (proportional by
+// character count, since we don't keep a real per-character width).
+function hitTestPage(textBlocks: PageTextBlock[], xPct: number, yPct: number) {
+  let best: { tb: PageTextBlock; charOffset: number; dist: number; inside: boolean } | null = null;
+  for (const tb of textBlocks) {
+    let cursor = 0;
+    for (const line of tb.lines) {
+      const lineStart = cursor;
+      cursor += line.text.length;
+      const inside = yPct >= line.yPct && yPct <= line.yPct + line.heightPct;
+      const dist = Math.abs(yPct - (line.yPct + line.heightPct / 2));
+      if (best === null || (inside && !best.inside) || (inside === best.inside && dist < best.dist)) {
+        const frac = line.widthPct > 0 ? (xPct - line.xPct) / line.widthPct : 0;
+        const clamped = Math.max(0, Math.min(1, frac));
+        const localChar = Math.round(clamped * line.text.length);
+        best = { tb, charOffset: lineStart + localChar, dist, inside };
+      }
+    }
+  }
+  return best ? { tb: best.tb, charOffset: best.charOffset } : null;
+}
+
+function computeHit(el: HTMLElement, clientX: number, clientY: number, textBlocks: PageTextBlock[]) {
+  const rect = el.getBoundingClientRect();
+  const xPct = ((clientX - rect.left) / rect.width) * 100;
+  const yPct = ((clientY - rect.top) / rect.height) * 100;
+  return hitTestPage(textBlocks, xPct, yPct);
+}
 
 export function ReaderView({
   content,
@@ -83,6 +181,7 @@ export function ReaderView({
   const articleRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pageDragRef = useRef<{ blockIndex: number; tb: PageTextBlock; anchorWord: WordRange } | null>(null);
 
   const annotationsByParagraph = useMemo(() => {
     const map = new Map<string, Annotation[]>();
@@ -172,7 +271,7 @@ export function ReaderView({
   // Copy/Look Up callout) would collide with ours anyway — mobile uses the
   // tap-a-sentence flow below instead, with native selection disabled there.
   useEffect(() => {
-    let timeoutId: number;
+    let isMouseDown = false;
 
     function trySetPendingFromSelection() {
       const selection = window.getSelection();
@@ -209,15 +308,32 @@ export function ReaderView({
       });
     }
 
-    function onSelectionChange() {
-      window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(trySetPendingFromSelection, 250);
+    function onMouseDown() {
+      isMouseDown = true;
     }
 
+    function onMouseUp() {
+      isMouseDown = false;
+      trySetPendingFromSelection();
+    }
+
+    function onSelectionChange() {
+      // While the mouse is still down (actively dragging), don't surface
+      // the toolbar yet — it renders right where the pointer is, and once
+      // it's in the DOM the browser can hit-test it instead of the
+      // underlying invisible text, which stops the native selection from
+      // extending any further. Wait for mouseup instead.
+      if (isMouseDown) return;
+      trySetPendingFromSelection();
+    }
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mouseup", onMouseUp);
     document.addEventListener("selectionchange", onSelectionChange);
     return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("selectionchange", onSelectionChange);
-      window.clearTimeout(timeoutId);
     };
   }, []);
 
@@ -249,6 +365,75 @@ export function ReaderView({
       });
       return prevAnchor;
     });
+  }
+
+  function setPendingFromWords(
+    blockIndex: number,
+    tb: PageTextBlock,
+    anchorWord: WordRange,
+    currentWord: WordRange,
+    clientX: number,
+    clientY: number
+  ) {
+    const start = Math.min(anchorWord.start, currentWord.start);
+    const end = Math.max(anchorWord.end, currentWord.end);
+    if (end <= start) return;
+    setPending({
+      paragraphId: `pg${blockIndex}-${tb.id}`,
+      start,
+      end,
+      text: tb.text.slice(start, end).trim(),
+      x: clientX,
+      y: clientY,
+    });
+  }
+
+  // Desktop: drag across the page image to select, snapping to whole words.
+  // There's no real text here to hand off to the browser's native selection,
+  // so the drag is tracked by hand — document-level listeners so it keeps
+  // working even while the pointer passes over the toolbar or another block.
+  function handlePageMouseDown(
+    e: React.MouseEvent<HTMLDivElement>,
+    blockIndex: number,
+    textBlocks: PageTextBlock[]
+  ) {
+    const el = e.currentTarget;
+    const hit = computeHit(el, e.clientX, e.clientY, textBlocks);
+    if (!hit) return;
+    const anchorWord = wordAt(hit.tb.text, hit.charOffset);
+    pageDragRef.current = { blockIndex, tb: hit.tb, anchorWord };
+    setPendingFromWords(blockIndex, hit.tb, anchorWord, anchorWord, e.clientX, e.clientY);
+
+    function onMove(ev: MouseEvent) {
+      const drag = pageDragRef.current;
+      if (!drag) return;
+      const h = computeHit(el, ev.clientX, ev.clientY, [drag.tb]);
+      if (!h) return;
+      const currentWord = wordAt(drag.tb.text, h.charOffset);
+      setPendingFromWords(drag.blockIndex, drag.tb, drag.anchorWord, currentWord, ev.clientX, ev.clientY);
+    }
+    function onUp() {
+      pageDragRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  // Mobile: tap a sentence on the page image, same gesture as regular text.
+  function handlePageTap(
+    e: React.MouseEvent<HTMLDivElement>,
+    blockIndex: number,
+    textBlocks: PageTextBlock[]
+  ) {
+    const hit = computeHit(e.currentTarget, e.clientX, e.clientY, textBlocks);
+    if (!hit) return;
+    const sentence = tokenizeSentences(hit.tb.text).find(
+      (s) => hit.charOffset >= s.start && hit.charOffset <= s.end
+    );
+    if (!sentence) return;
+    handleSentenceTap(`pg${blockIndex}-${hit.tb.id}`, hit.tb.text, sentence.start, sentence.end);
   }
 
   function commitAnnotation(note?: string) {
@@ -373,7 +558,7 @@ export function ReaderView({
           <div className="mx-auto w-full max-w-2xl px-6 py-12">
             <article
               ref={articleRef}
-              className="rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.85] text-[oklch(0.88_0.015_75)] sm:p-12"
+              className="rounded-3xl border border-border/60 bg-card/40 p-8 text-[17px] leading-[1.6] text-[oklch(0.88_0.015_75)] sm:p-12"
             >
               <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
                 {content.category}
@@ -425,6 +610,66 @@ export function ReaderView({
                         {block.caption && (
                           <p className="text-sm text-muted-foreground">{block.caption}</p>
                         )}
+                      </div>
+                    );
+                  }
+
+                  if (block.type === "page") {
+                    const containerStyle = {
+                      aspectRatio: String(block.aspectRatio),
+                    } as React.CSSProperties;
+
+                    return (
+                      <div
+                        key={blockIndex}
+                        style={containerStyle}
+                        className="relative w-full select-none overflow-hidden rounded-xl border border-border/60"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={block.url} alt="" className="absolute inset-0 h-full w-full" />
+
+                        {block.textBlocks.map((tb) => {
+                          const paragraphId = `pg${blockIndex}-${tb.id}`;
+                          const anns = annotationsByParagraph.get(paragraphId) ?? [];
+                          const pendingHere =
+                            pending && pending.paragraphId === paragraphId ? pending : null;
+
+                          return (
+                            <div key={tb.id} data-paragraph-id={paragraphId}>
+                              {anns.map((a) =>
+                                renderPageHighlight(
+                                  tb,
+                                  a,
+                                  `${a.note ? "bg-gold/30" : "bg-rose/30"} ${
+                                    activeId === a.id ? "ring-2 ring-rose" : ""
+                                  }`,
+                                  a.id
+                                )
+                              )}
+                              {pendingHere &&
+                                renderPageHighlight(
+                                  tb,
+                                  pendingHere,
+                                  "bg-rose/20 outline-dashed outline-1 outline-rose/60",
+                                  "pending"
+                                )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Desktop: drag to select, snapping to whole words —
+                            no invisible text layer, so nothing to fight the
+                            browser's own rendering of the page image over. */}
+                        <div
+                          className="absolute inset-0 hidden cursor-text sm:block"
+                          onMouseDown={(e) => handlePageMouseDown(e, blockIndex, block.textBlocks)}
+                        />
+
+                        {/* Mobile: tap-a-sentence, same gesture as regular paragraphs */}
+                        <div
+                          className="absolute inset-0 cursor-pointer sm:hidden"
+                          onClick={(e) => handlePageTap(e, blockIndex, block.textBlocks)}
+                        />
                       </div>
                     );
                   }

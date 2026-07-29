@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { BlockEditor, type EditableBlock } from "@/components/admin/block-editor";
 import { CoverImageField } from "@/components/admin/cover-image-field";
 import { VideoAttachmentsField } from "@/components/admin/video-attachments-field";
@@ -15,15 +16,20 @@ import {
   uploadVideoAttachments,
   type VideoAttachment,
 } from "@/lib/content-media";
+import { convertPdfToBlocks } from "@/lib/pdf-convert";
 import { createClient } from "@/lib/supabase/client";
 import { CONTENT_CATEGORIES } from "@/lib/categories";
 import type { ContentBlock } from "@/lib/supabase/types";
 
 export function EditContentForm({
   contentId,
+  slug,
+  hasSourcePdf,
   initial,
 }: {
   contentId: string;
+  slug: string;
+  hasSourcePdf: boolean;
   initial: {
     title: string;
     category: string;
@@ -62,6 +68,39 @@ export function EditContentForm({
 
   const [blocks, setBlocks] = useState<EditableBlock[]>(initialSplit.textBlocks);
   const [videos, setVideos] = useState<VideoAttachment[]>(initialSplit.videoAttachments);
+  const [reconverting, setReconverting] = useState(false);
+  const [reconvertProgress, setReconvertProgress] = useState({ page: 0, total: 0 });
+
+  async function handleReconvert() {
+    if (
+      !confirm(
+        "Isso vai buscar o PDF original e refazer o texto/imagens do conteúdo do zero, usando o conversor mais recente. Suas anotações de texto e a ordem que você ajustou manualmente serão substituídas. Vídeos e capa não são afetados. Continuar?"
+      )
+    ) {
+      return;
+    }
+    setReconverting(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data: pdfBlob, error: downloadError } = await supabase.storage
+        .from("content-pdfs")
+        .download(`${slug}/original.pdf`);
+      if (downloadError || !pdfBlob) throw downloadError ?? new Error("PDF original não encontrado.");
+
+      const file = new File([pdfBlob], "original.pdf", { type: "application/pdf" });
+      const result = await convertPdfToBlocks(file, (page, total) =>
+        setReconvertProgress({ page, total })
+      );
+      setBlocks(result as EditableBlock[]);
+    } catch (err) {
+      console.error(err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`Não consegui reconverter o PDF (${detail}).`);
+    } finally {
+      setReconverting(false);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -174,7 +213,40 @@ export function EditContentForm({
         <VideoAttachmentsField videos={videos} onChange={setVideos} />
 
         <div>
-          <p className="mb-3 font-heading text-lg text-foreground">Conteúdo</p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="font-heading text-lg text-foreground">Conteúdo</p>
+            {hasSourcePdf && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={reconverting}
+                onClick={handleReconvert}
+              >
+                <RefreshCw className={`size-3.5 ${reconverting ? "animate-spin" : ""}`} />
+                {reconverting
+                  ? `Reconvertendo página ${reconvertProgress.page}/${reconvertProgress.total}...`
+                  : "Reconverter PDF original"}
+              </Button>
+            )}
+          </div>
+          {hasSourcePdf && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              Refaz o texto e as imagens usando o PDF original e o conversor
+              mais recente — útil se este conteúdo foi convertido antes de
+              uma melhoria no conversor.
+            </p>
+          )}
+          {reconverting && (
+            <Progress
+              value={
+                reconvertProgress.total
+                  ? (reconvertProgress.page / reconvertProgress.total) * 100
+                  : 0
+              }
+              className="mb-3"
+            />
+          )}
           <BlockEditor blocks={blocks} onChange={setBlocks} />
         </div>
 

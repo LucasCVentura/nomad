@@ -40,7 +40,7 @@ export function BlockEditor({
           className="flex gap-3 rounded-xl border border-border/60 bg-card p-4"
         >
           <div className="flex flex-1 flex-col gap-2">
-            {block.type !== "image" && (
+            {block.type !== "image" && block.type !== "page" && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() =>
@@ -61,14 +61,31 @@ export function BlockEditor({
               </div>
             )}
 
-            {block.type === "image" ? (
+            {block.type === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={block.url}
                 alt={block.alt ?? "Imagem do conteúdo"}
                 className="h-40 w-auto max-w-xs rounded-lg border border-border/60 object-contain"
               />
-            ) : (
+            )}
+
+            {block.type === "page" && (
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={block.url}
+                  alt="Página do conteúdo"
+                  className="h-40 w-auto rounded-lg border border-border/60 object-contain"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Página extraída como imagem — {block.textBlocks.length} trecho(s)
+                  de texto selecionável detectado(s).
+                </p>
+              </div>
+            )}
+
+            {block.type !== "image" && block.type !== "page" && (
               <textarea
                 value={block.text}
                 onChange={(e) => updateBlock(index, { ...block, text: e.target.value })}

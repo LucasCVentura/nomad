@@ -72,7 +72,7 @@ export default function NovoConteudoPage() {
       const finalBlocks: EditableBlock[] = [];
       let imageIndex = 0;
       for (const block of blocks) {
-        if (block.type !== "image") {
+        if (block.type !== "image" && block.type !== "page") {
           finalBlocks.push(block);
           continue;
         }
@@ -81,19 +81,25 @@ export default function NovoConteudoPage() {
           continue;
         }
         const blob = await (await fetch(block.url)).blob();
-        const path = `${slug}/image-${imageIndex++}.png`;
+        const ext = block.type === "page" ? "jpg" : "png";
+        const path = `${slug}/${block.type}-${imageIndex++}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("content-images")
-          .upload(path, blob, { contentType: "image/png", upsert: true });
+          .upload(path, blob, {
+            contentType: block.type === "page" ? "image/jpeg" : "image/png",
+            upsert: true,
+          });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from("content-images").getPublicUrl(path);
-        finalBlocks.push({ type: "image", url: data.publicUrl });
+        finalBlocks.push({ ...block, url: data.publicUrl });
       }
 
       const videoBlocks = await uploadVideoAttachments(supabase, slug, videos);
       const coverImageUrl = await uploadCoverImage(supabase, slug, coverFile);
 
-      const pageCount = finalBlocks.filter((b) => b.type === "paragraph").length;
+      const pageCount = finalBlocks.filter(
+        (b) => b.type === "page" || b.type === "paragraph"
+      ).length;
 
       const { error: insertError } = await supabase.from("contents").insert({
         slug,

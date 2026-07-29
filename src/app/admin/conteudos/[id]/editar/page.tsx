@@ -13,7 +13,7 @@ export default async function EditarConteudoPage({
 
   const { data: content } = await supabase
     .from("contents")
-    .select("id, title, category, price, description, status, body, cover_image_url")
+    .select("id, slug, title, category, price, description, status, body, cover_image_url")
     .eq("id", id)
     .maybeSingle();
 
@@ -21,9 +21,19 @@ export default async function EditarConteudoPage({
     notFound();
   }
 
+  // The original PDF is only there for content that went through the
+  // upload flow (not, say, something created by hand) — if it's missing,
+  // the reconvert action just won't be offered.
+  const { data: sourceFiles } = await supabase.storage
+    .from("content-pdfs")
+    .list(content.slug);
+  const hasSourcePdf = (sourceFiles ?? []).some((f) => f.name === "original.pdf");
+
   return (
     <EditContentForm
       contentId={content.id}
+      slug={content.slug}
+      hasSourcePdf={hasSourcePdf}
       initial={{
         title: content.title,
         category: content.category,
