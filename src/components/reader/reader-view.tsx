@@ -264,7 +264,8 @@ export function ReaderView({
   }
 
   async function submitRating(rating: number) {
-    setRatingModalOpen(false);
+    // Doesn't close the modal — it moves on to the Kira invite step itself,
+    // and calls onOpenChange when that's dismissed.
     if (!contentId) return;
     const supabase = createClient();
     const {
