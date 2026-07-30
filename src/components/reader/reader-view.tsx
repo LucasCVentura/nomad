@@ -263,7 +263,7 @@ export function ReaderView({
       .eq("content_id", contentId);
   }
 
-  async function submitRating(rating: number) {
+  async function submitRating(rating: number, review: string) {
     // Doesn't close the modal — it moves on to the Kira invite step itself,
     // and calls onOpenChange when that's dismissed.
     if (!contentId) return;
@@ -274,7 +274,7 @@ export function ReaderView({
     if (!session) return;
     await supabase
       .from("purchases")
-      .update({ rating })
+      .update({ rating, review: review || null })
       .eq("user_id", session.user.id)
       .eq("content_id", contentId);
   }

@@ -13,11 +13,12 @@ export function ContentRatingModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (rating: number) => void;
+  onSubmit: (rating: number, review: string) => void;
 }) {
   const [step, setStep] = useState<"rating" | "kira">("rating");
   const [hovered, setHovered] = useState(0);
   const [selected, setSelected] = useState(0);
+  const [review, setReview] = useState("");
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
@@ -26,6 +27,7 @@ export function ContentRatingModal({
       setStep("rating");
       setHovered(0);
       setSelected(0);
+      setReview("");
     }
   }
 
@@ -61,12 +63,22 @@ export function ContentRatingModal({
                 ))}
               </div>
 
+              {selected > 0 && (
+                <textarea
+                  value={review}
+                  onChange={(e) => setReview(e.target.value)}
+                  placeholder="Quer contar mais? Sua avaliação pode aparecer no site (opcional)"
+                  rows={2}
+                  className="mt-4 w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-2 text-left text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring"
+                />
+              )}
+
               <div className="mt-6 flex flex-col gap-2">
                 <Button
                   className="bg-rose text-rose-foreground hover:bg-rose/90"
                   disabled={selected === 0}
                   onClick={() => {
-                    onSubmit(selected);
+                    onSubmit(selected, review.trim());
                     setStep("kira");
                   }}
                 >

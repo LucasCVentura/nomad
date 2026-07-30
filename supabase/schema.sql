@@ -114,6 +114,7 @@ create table if not exists public.purchases (
   purchased_at timestamptz not null default now(),
   -- Asked once, right after the student marks the content as completed.
   rating integer check (rating between 1 and 5),
+  review text,
   unique (user_id, content_id)
 );
 
@@ -137,6 +138,40 @@ create policy "Users can update own purchase progress"
   on public.purchases for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Two narrow, read-only views so the public landing page can show real
+-- numbers/testimonials without opening up RLS on `purchases` itself (which
+-- would let anon read every student's raw progress/user_id). Views run with
+-- the owner's privileges (security_invoker = false), so they see past the
+-- table's RLS the same way a service-role query would, but only expose the
+-- specific columns defined here.
+create or replace view public.platform_stats
+with (security_invoker = false) as
+select
+  (select count(*) from public.contents where status = 'published') as materials_count,
+  (select count(distinct user_id) from public.purchases) as professionals_count,
+  (select round(avg(rating)::numeric, 1) from public.purchases where rating is not null) as avg_rating,
+  (select count(*) from public.purchases where rating is not null) as rating_count;
+
+grant select on public.platform_stats to anon, authenticated;
+
+create or replace view public.public_reviews
+with (security_invoker = false) as
+select
+  p.id,
+  p.rating,
+  p.review,
+  c.title as content_title,
+  c.category as content_category,
+  p.purchased_at
+from public.purchases p
+join public.contents c on c.id = p.content_id
+where p.review is not null
+  and length(trim(p.review)) > 0
+  and p.rating >= 4
+order by p.purchased_at desc;
+
+grant select on public.public_reviews to anon, authenticated;
 
 -- Annotations -----------------------------------------------------------------
 create table if not exists public.annotations (

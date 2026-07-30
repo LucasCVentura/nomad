@@ -221,6 +221,7 @@ export type Database = {
           progress: number
           purchased_at: string
           rating: number | null
+          review: string | null
           updated_seen_at: string
           user_id: string
         }
@@ -231,6 +232,7 @@ export type Database = {
           progress?: number
           purchased_at?: string
           rating?: number | null
+          review?: string | null
           updated_seen_at?: string
           user_id: string
         }
@@ -241,6 +243,7 @@ export type Database = {
           progress?: number
           purchased_at?: string
           rating?: number | null
+          review?: string | null
           updated_seen_at?: string
           user_id?: string
         }
@@ -263,7 +266,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      platform_stats: {
+        Row: {
+          materials_count: number | null
+          professionals_count: number | null
+          avg_rating: number | null
+          rating_count: number | null
+        }
+        Relationships: []
+      }
+      public_reviews: {
+        Row: {
+          id: string
+          rating: number | null
+          review: string | null
+          content_title: string
+          content_category: string
+          purchased_at: string
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_content_access: { Args: { cid: string }; Returns: boolean }

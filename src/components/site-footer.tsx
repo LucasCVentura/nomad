@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { AtSign } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { KIRACLINIC_URL } from "@/lib/constants";
 
 export function SiteFooter() {
   return (
@@ -13,11 +14,13 @@ export function SiteFooter() {
             profissionais de estética.
           </p>
           <a
-            href="#"
+            href={KIRACLINIC_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
-            <AtSign className="size-4" />
-            @nfacademy
+            <Sparkles className="size-4 text-gold" />
+            Em parceria com o Kiraclinic
           </a>
         </div>
         <div>

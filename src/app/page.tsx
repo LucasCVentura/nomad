@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import {
   ShoppingBag,
@@ -21,6 +22,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { createClient } from "@/lib/supabase/server";
 
 const features = [
   {
@@ -49,34 +51,6 @@ const features = [
   },
 ];
 
-const catalog = [
-  {
-    title: "Harmonização Facial na Prática",
-    category: "Facial",
-    format: "PDF · 84 páginas",
-  },
-  {
-    title: "Fundamentos de Peeling Químico",
-    category: "Skincare",
-    format: "PDF · 52 páginas",
-  },
-  {
-    title: "Protocolos de Microagulhamento",
-    category: "Procedimentos",
-    format: "PDF · 63 páginas",
-  },
-  {
-    title: "Anatomia Aplicada à Estética",
-    category: "Fundamentos",
-    format: "PDF · 120 páginas",
-  },
-  {
-    title: "Skincare Baseado em Evidência",
-    category: "Skincare",
-    format: "PDF · 71 páginas",
-  },
-];
-
 const steps = [
   {
     title: "Crie sua conta",
@@ -93,55 +67,6 @@ const steps = [
   {
     title: "Tire dúvidas com a Dra. Nathalia",
     description: "Manda sua pergunta sobre o material direto pra ela, sem intermediário.",
-  },
-];
-
-const testimonialsRowA = [
-  {
-    name: "Camila R.",
-    role: "Esteticista",
-    quote:
-      "Finalmente um lugar só pra estudar estética sem PDF espalhado em mil pastas.",
-  },
-  {
-    name: "Juliana M.",
-    role: "Biomédica esteta",
-    quote:
-      "A Dra. Nathalia mesma respondeu minha dúvida de protocolo no mesmo dia.",
-  },
-  {
-    name: "Patrícia A.",
-    role: "Dermatofuncional",
-    quote:
-      "Anotar direto em cima do material mudou como eu reviso antes de atender.",
-  },
-  {
-    name: "Renata F.",
-    role: "Esteticista",
-    quote: "Comprei um material às 22h e já tava lendo dois minutos depois.",
-  },
-];
-
-const testimonialsRowB = [
-  {
-    name: "Bianca S.",
-    role: "Biomédica esteta",
-    quote: "Ter um chat separado por curso facilita muito organizar minhas dúvidas.",
-  },
-  {
-    name: "Larissa T.",
-    role: "Esteticista",
-    quote: "Uso as anotações como se fosse meu caderno de plantão, só que digital.",
-  },
-  {
-    name: "Fernanda K.",
-    role: "Dermatofuncional",
-    quote: "Indiquei pra toda a equipe da clínica onde trabalho.",
-  },
-  {
-    name: "Aline P.",
-    role: "Esteticista",
-    quote: "Preço justo e o material é realmente escrito por quem atende.",
   },
 ];
 
@@ -178,7 +103,32 @@ function Kicker({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+
+  const [{ data: stats }, { data: reviews }, { data: contents }] = await Promise.all([
+    supabase.from("platform_stats").select("*").single(),
+    supabase.from("public_reviews").select("*").limit(12),
+    supabase
+      .from("contents")
+      .select("title, category, format, pages")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
+  const statItems = [
+    stats?.materials_count
+      ? { value: String(stats.materials_count), label: "materiais" }
+      : null,
+    stats?.rating_count ? { value: stats.avg_rating!.toFixed(1), label: "avaliação" } : null,
+    stats?.professionals_count
+      ? { value: String(stats.professionals_count), label: "profissionais" }
+      : null,
+  ].filter((item): item is { value: string; label: string } => item !== null);
+
+  const catalog = contents ?? [];
+
   return (
     <div className="flex flex-1 flex-col">
       <SiteHeader />
@@ -242,22 +192,19 @@ export default function Home() {
                 </Button>
               </div>
 
-              <div className="mt-14 flex items-center gap-8">
-                <div>
-                  <p className="font-heading text-2xl text-foreground">120+</p>
-                  <p className="text-xs text-muted-foreground">materiais</p>
+              {statItems.length > 0 && (
+                <div className="mt-14 flex items-center gap-8">
+                  {statItems.map((item, index) => (
+                    <Fragment key={item.label}>
+                      {index > 0 && <span className="h-8 w-px bg-border" />}
+                      <div>
+                        <p className="font-heading text-2xl text-foreground">{item.value}</p>
+                        <p className="text-xs text-muted-foreground">{item.label}</p>
+                      </div>
+                    </Fragment>
+                  ))}
                 </div>
-                <span className="h-8 w-px bg-border" />
-                <div>
-                  <p className="font-heading text-2xl text-foreground">4.9</p>
-                  <p className="text-xs text-muted-foreground">avaliação</p>
-                </div>
-                <span className="h-8 w-px bg-border" />
-                <div>
-                  <p className="font-heading text-2xl text-foreground">2.400+</p>
-                  <p className="text-xs text-muted-foreground">profissionais</p>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Product mockup: annotation viewer */}
@@ -421,7 +368,9 @@ export default function Home() {
                 <h3 className="mt-1.5 font-heading text-base leading-snug text-foreground">
                   {item.title}
                 </h3>
-                <p className="mt-1 text-xs text-muted-foreground">{item.format}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {item.format} · {item.pages ?? "—"} páginas
+                </p>
               </div>
             ))}
             <div className="w-1 shrink-0" />
@@ -519,32 +468,35 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Testimonials marquee */}
-        <section className="border-b border-border/60 py-24">
-          <div className="mx-auto max-w-6xl px-6">
-            <Kicker>Depoimentos</Kicker>
-            <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
-              Quem já estuda por aqui
-            </h2>
-          </div>
+        {/* Testimonials marquee — only appears once real ratings with a
+            written comment start coming in; no placeholder quotes shown
+            meanwhile. */}
+        {reviews && reviews.length > 0 && (
+          <section className="border-b border-border/60 py-24">
+            <div className="mx-auto max-w-6xl px-6">
+              <Kicker>Depoimentos</Kicker>
+              <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
+                Quem já estuda por aqui
+              </h2>
+            </div>
 
-          <div className="mt-12 space-y-4">
-            <div data-marquee className="fade-edges-x overflow-hidden">
-              <div className="flex w-max animate-marquee-left gap-4">
-                {[...testimonialsRowA, ...testimonialsRowA].map((t, i) => (
-                  <TestimonialCard key={`a-${i}`} {...t} />
-                ))}
+            <div className="mt-12">
+              <div data-marquee className="fade-edges-x overflow-hidden">
+                <div className="flex w-max animate-marquee-left gap-4">
+                  {[...reviews, ...reviews].map((r, i) => (
+                    <TestimonialCard
+                      key={i}
+                      rating={r.rating ?? 5}
+                      quote={r.review!}
+                      contentTitle={r.content_title}
+                      contentCategory={r.content_category}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-            <div data-marquee className="fade-edges-x overflow-hidden">
-              <div className="flex w-max animate-marquee-right gap-4">
-                {[...testimonialsRowB, ...testimonialsRowB].map((t, i) => (
-                  <TestimonialCard key={`b-${i}`} {...t} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* FAQ */}
         <section id="duvidas" className="border-b border-border/60 px-6 py-24">
@@ -610,26 +562,32 @@ export default function Home() {
 }
 
 function TestimonialCard({
-  name,
-  role,
+  rating,
   quote,
+  contentTitle,
+  contentCategory,
 }: {
-  name: string;
-  role: string;
+  rating: number;
   quote: string;
+  contentTitle: string;
+  contentCategory: string;
 }) {
   return (
     <div className="w-80 shrink-0 rounded-2xl border border-border/60 bg-card p-5">
       <div className="flex gap-0.5 text-gold">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Star key={i} className="size-3 fill-current" />
+          <Star
+            key={i}
+            className={`size-3 ${i < rating ? "fill-current" : "text-muted-foreground/30"}`}
+          />
         ))}
       </div>
       <p className="mt-3 text-sm leading-relaxed text-foreground">
         &quot;{quote}&quot;
       </p>
       <p className="mt-4 text-xs text-muted-foreground">
-        <span className="text-foreground">{name}</span> · {role}
+        Avaliação de <span className="text-foreground">{contentCategory}</span> ·{" "}
+        {contentTitle}
       </p>
     </div>
   );
