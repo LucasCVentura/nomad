@@ -235,6 +235,7 @@ export async function convertPdfToBlocks(
         const lines = bucketItemsIntoLines(items);
         paragraphs = groupLinesIntoParagraphs(lines);
       } catch (err) {
+        console.error(`[pdf-convert] p${pageNum} texto:`, err);
         diagnostics.push(`p${pageNum} texto: ${errMessage(err)}`);
       }
 
