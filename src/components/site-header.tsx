@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
+import { CartButton } from "@/components/cart-button";
 import { Logo } from "@/components/logo";
 
 export function SiteHeader() {
@@ -27,20 +28,23 @@ export function SiteHeader() {
             Dúvidas
           </a>
         </nav>
-        <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" render={<Link href="/entrar" />} nativeButton={false}>
-            Entrar
-          </Button>
-          <Button
-            size="sm"
-            className="bg-rose text-rose-foreground hover:bg-rose/90"
-            render={<Link href="/registro" />}
-            nativeButton={false}
-          >
-            Criar conta
-          </Button>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <CartButton />
+          <div className="hidden items-center gap-3 md:flex">
+            <Button variant="ghost" size="sm" render={<Link href="/entrar" />} nativeButton={false}>
+              Entrar
+            </Button>
+            <Button
+              size="sm"
+              className="bg-rose text-rose-foreground hover:bg-rose/90"
+              render={<Link href="/registro" />}
+              nativeButton={false}
+            >
+              Criar conta
+            </Button>
+          </div>
+          <MobileNav />
         </div>
-        <MobileNav />
       </div>
     </header>
   );

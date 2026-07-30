@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Roboto } from "next/font/google";
+import { CartProvider } from "@/lib/cart-context";
+import { CartDrawer } from "@/components/cart-drawer";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -30,7 +32,10 @@ export default function RootLayout({
       className={`dark ${roboto.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
+        <CartProvider>
+          {children}
+          <CartDrawer />
+        </CartProvider>
       </body>
     </html>
   );

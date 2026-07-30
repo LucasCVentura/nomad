@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CartButton } from "@/components/cart-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,25 +56,28 @@ export function AppTopbar() {
           </Link>
         </nav>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-rose/15 text-xs text-rose">
-              {label}
-            </AvatarFallback>
-          </Avatar>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-              <LogOut className="size-4" />
-              Sair
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-2">
+        <CartButton />
+        <DropdownMenu>
+          <DropdownMenuTrigger>
+            <Avatar className="size-8">
+              <AvatarFallback className="bg-rose/15 text-xs text-rose">
+                {label}
+              </AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="size-4" />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

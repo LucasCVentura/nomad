@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FileText, ShoppingCart } from "lucide-react";
+import { Check, FileText, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
+import { useCart } from "@/lib/cart-context";
 
 export type LojaItem = {
   id: string;
@@ -20,16 +19,9 @@ export type LojaItem = {
   coverImageUrl: string | null;
 };
 
-export function LojaGrid({
-  items,
-  isLoggedIn,
-}: {
-  items: LojaItem[];
-  isLoggedIn: boolean;
-}) {
-  const router = useRouter();
+export function LojaGrid({ items }: { items: LojaItem[] }) {
+  const cart = useCart();
   const [active, setActive] = useState("Todos");
-  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const categories = useMemo(
     () => ["Todos", ...Array.from(new Set(items.map((i) => i.category)))],
@@ -39,29 +31,19 @@ export function LojaGrid({
   const filtered =
     active === "Todos" ? items : items.filter((item) => item.category === active);
 
-  async function handleBuy(item: LojaItem) {
-    if (!isLoggedIn) {
-      router.push("/registro?next=/app/loja");
+  function handleToggleCart(item: LojaItem) {
+    if (cart.has(item.id)) {
+      cart.removeItem(item.id);
       return;
     }
-    setPendingId(item.id);
-    const supabase = createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) {
-      router.push("/entrar?next=/app/loja");
-      return;
-    }
-    const { error } = await supabase
-      .from("purchases")
-      .insert({ user_id: user.id, content_id: item.id });
-    setPendingId(null);
-    if (!error) {
-      router.push(`/app/ler/${item.slug}`);
-      router.refresh();
-    }
+    cart.addItem({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      price: item.price,
+      coverImageUrl: item.coverImageUrl,
+    });
+    cart.setOpen(true);
   }
 
   if (items.length === 0) {
@@ -133,15 +115,24 @@ export function LojaGrid({
                 >
                   Já adquirido
                 </Button>
+              ) : cart.has(item.id) ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-rose text-rose"
+                  onClick={() => handleToggleCart(item)}
+                >
+                  <Check className="size-3.5" />
+                  No carrinho
+                </Button>
               ) : (
                 <Button
                   size="sm"
                   className="bg-rose text-rose-foreground hover:bg-rose/90"
-                  disabled={pendingId === item.id}
-                  onClick={() => handleBuy(item)}
+                  onClick={() => handleToggleCart(item)}
                 >
                   <ShoppingCart className="size-3.5" />
-                  {pendingId === item.id ? "Comprando..." : "Comprar"}
+                  Adicionar
                 </Button>
               )}
             </div>

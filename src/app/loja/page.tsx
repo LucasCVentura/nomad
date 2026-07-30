@@ -51,7 +51,7 @@ export default async function LojaPage() {
             estudar direto na plataforma.
           </p>
 
-          <LojaGrid items={items} isLoggedIn={false} />
+          <LojaGrid items={items} />
         </div>
       </main>
 

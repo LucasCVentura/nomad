@@ -41,7 +41,7 @@ export default async function AppLojaPage() {
         Materiais escritos pela Dra. Nathalia, prontos pra comprar e estudar direto na plataforma.
       </p>
 
-      <LojaGrid items={items} isLoggedIn />
+      <LojaGrid items={items} />
     </div>
   );
 }
