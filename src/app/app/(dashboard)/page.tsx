@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { FileText, ArrowRight, CheckCircle2, MessageCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { KiraBanner } from "@/components/kira-banner";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppPage() {
@@ -54,6 +55,8 @@ export default async function AppPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
+      <KiraBanner />
+
       <p className="text-sm text-muted-foreground">
         Bem-vinda de volta. Você tem {items.length} conteúdos na sua área de
         estudos.
