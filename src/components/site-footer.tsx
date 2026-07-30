@@ -88,7 +88,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="mx-auto mt-12 max-w-6xl border-t border-border/60 pt-6 text-xs text-muted-foreground">
-        &copy; {new Date().getFullYear()} NF Academy. Todos os direitos reservados.
+        &copy; {new Date().getFullYear()} Manual NF. Todos os direitos reservados.
       </div>
     </footer>
   );

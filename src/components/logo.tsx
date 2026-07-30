@@ -27,7 +27,7 @@ export function Logo({ className }: { className?: string }) {
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <Logomark className="text-gold" />
       <span className="font-heading text-xl tracking-tight text-foreground">
-        NF Academy<span className="text-rose">.</span>
+        Manual NF<span className="text-rose">.</span>
       </span>
     </span>
   );

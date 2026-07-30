@@ -2,7 +2,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 export const metadata = {
-  title: "Política de Privacidade — NF Academy",
+  title: "Política de Privacidade — Manual NF",
 };
 
 export default function PrivacidadePage() {
@@ -25,7 +25,7 @@ export default function PrivacidadePage() {
           <div className="mt-10 space-y-8 text-sm leading-relaxed text-muted-foreground">
             <section>
               <p>
-                Esta política explica como a NF Academy coleta, usa e
+                Esta política explica como o Manual NF coleta, usa e
                 protege os dados pessoais de quem usa a plataforma, em
                 conformidade com a Lei Geral de Proteção de Dados (LGPD —
                 Lei nº 13.709/2018).
@@ -37,7 +37,7 @@ export default function PrivacidadePage() {
                 1. Quem trata os seus dados
               </h2>
               <p>
-                A NF Academy, operada por{" "}
+                O Manual NF, operado por{" "}
                 <span className="text-foreground">
                   [razão social / CPF ou CNPJ da Dra. Nathalia]
                 </span>

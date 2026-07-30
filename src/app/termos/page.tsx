@@ -2,7 +2,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 export const metadata = {
-  title: "Termos de Uso — NF Academy",
+  title: "Termos de Uso — Manual NF",
 };
 
 export default function TermosPage() {
@@ -26,12 +26,12 @@ export default function TermosPage() {
             <section>
               <h2 className="mb-2 font-heading text-lg text-foreground">1. Aceitação</h2>
               <p>
-                Estes Termos de Uso regem o acesso e uso da plataforma NF
-                Academy (&quot;plataforma&quot;), operada por{" "}
+                Estes Termos de Uso regem o acesso e uso da plataforma Manual
+                NF (&quot;plataforma&quot;), operada por{" "}
                 <span className="text-foreground">
                   [razão social / CPF ou CNPJ da Dra. Nathalia]
                 </span>{" "}
-                (&quot;NF Academy&quot;, &quot;nós&quot;). Ao criar uma conta
+                (&quot;Manual NF&quot;, &quot;nós&quot;). Ao criar uma conta
                 ou usar a plataforma, você concorda com estes termos e com a
                 nossa{" "}
                 <a href="/privacidade" className="text-rose hover:underline">
@@ -42,9 +42,9 @@ export default function TermosPage() {
             </section>
 
             <section>
-              <h2 className="mb-2 font-heading text-lg text-foreground">2. O que é a NF Academy</h2>
+              <h2 className="mb-2 font-heading text-lg text-foreground">2. O que é o Manual NF</h2>
               <p>
-                A NF Academy é uma plataforma de venda de materiais
+                O Manual NF é uma plataforma de venda de materiais
                 educacionais digitais (PDFs, vídeos e demais conteúdos) na
                 área de estética, escritos e revisados pela própria Dra.
                 Nathalia. Não é um marketplace aberto: todo o conteúdo
@@ -73,7 +73,7 @@ export default function TermosPage() {
                 pelo tempo em que sua conta permanecer ativa. O conteúdo não
                 pode ser copiado, compartilhado, redistribuído, publicado em
                 outros sites, revendido ou usado para fins comerciais sem
-                autorização expressa da NF Academy.
+                autorização expressa do Manual NF.
               </p>
               <p className="mt-2">
                 Cada conteúdo comprado permanece disponível na sua área de
@@ -106,7 +106,7 @@ export default function TermosPage() {
                 privado com a Dra. Nathalia para tirar dúvidas sobre aquele
                 material. Esse canal deve ser usado de forma respeitosa e
                 para o propósito a que se destina — dúvidas relacionadas ao
-                conteúdo adquirido. A NF Academy pode remover mensagens ou
+                conteúdo adquirido. O Manual NF pode remover mensagens ou
                 suspender o acesso ao chat em caso de uso abusivo.
               </p>
             </section>
@@ -118,7 +118,7 @@ export default function TermosPage() {
               <p>
                 Todo o conteúdo disponibilizado na plataforma — textos,
                 imagens, vídeos, layout e marca — é protegido por direitos
-                autorais e pertence à Dra. Nathalia e/ou à NF Academy. Nenhuma
+                autorais e pertence à Dra. Nathalia e/ou ao Manual NF. Nenhuma
                 parte deste conteúdo pode ser reproduzida sem autorização.
               </p>
             </section>
@@ -152,7 +152,7 @@ export default function TermosPage() {
               </h2>
               <p>
                 Estes termos são regidos pelas leis brasileiras. Eventuais
-                disputas serão resolvidas no foro do domicílio da NF Academy,
+                disputas serão resolvidas no foro do domicílio do Manual NF,
                 salvo disposição legal em contrário.
               </p>
             </section>
