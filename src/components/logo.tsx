@@ -17,7 +17,8 @@ export function Logomark({ className }: { className?: string }) {
         strokeLinejoin="round"
       />
       <path d="M26 13v11.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="26" cy="13" r="2" className="fill-rose" stroke="none" />
+      <path d="M26 13.2h5.2" className="stroke-rose" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M26 18.7h3.4" className="stroke-rose" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
