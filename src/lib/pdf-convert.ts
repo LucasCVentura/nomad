@@ -191,10 +191,27 @@ function groupLinesIntoParagraphs(lines: MeasuredLine[]): MeasuredGroupLine[][] 
 const ICLOUD_HINT =
   "confira se o arquivo está baixado no aparelho (e não só salvo no iCloud/nuvem) e se há conexão com a internet";
 
+// The text-extraction step occasionally comes back completely empty for
+// every single page — not a thrown error, just zero text items measured —
+// seemingly a transient hiccup (font/cmap loading, a slow tab) rather than
+// anything about the PDF itself, since reconverting the exact same file
+// again normally works. Rather than silently publish a page-image-only
+// content with nothing to highlight, retry the whole conversion a couple
+// times whenever that happens.
+const MAX_ATTEMPTS = 3;
+
+export type ConvertResult = {
+  blocks: ContentBlock[];
+  // Set only if every attempt still came back with zero extractable text —
+  // the images are fine either way, but highlighting won't work until this
+  // is retried (manually, e.g. via "Reconverter PDF original").
+  warning?: string;
+};
+
 export async function convertPdfToBlocks(
   file: File,
   onProgress?: (page: number, totalPages: number) => void
-): Promise<ContentBlock[]> {
+): Promise<ConvertResult> {
   if (file.size === 0) {
     throw new Error(`arquivo vazio — ${ICLOUD_HINT}`);
   }
@@ -221,6 +238,44 @@ export async function convertPdfToBlocks(
     standardFontDataUrl: "/pdfjs/standard_fonts/",
   }).promise;
 
+  let blocks: ContentBlock[] = [];
+  let diagnostics: string[] = [];
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const result = await convertOnce(doc, pdfjsLib, onProgress);
+    blocks = result.blocks;
+    diagnostics = result.diagnostics;
+
+    const totalLines = blocks.reduce(
+      (sum, b) => sum + (b.type === "page" ? b.textBlocks.reduce((s, tb) => s + tb.lines.length, 0) : 0),
+      0
+    );
+    if (totalLines > 0 || attempt === MAX_ATTEMPTS) break;
+    console.warn(`[pdf-convert] attempt ${attempt} extracted no text at all, retrying...`);
+  }
+
+  if (blocks.length === 0) {
+    const detail = diagnostics.length > 0 ? diagnostics.slice(0, 3).join(" | ") : "sem detalhes";
+    throw new Error(`nada extraído de ${doc.numPages} página(s) — ${detail}`);
+  }
+
+  const totalLines = blocks.reduce(
+    (sum, b) => sum + (b.type === "page" ? b.textBlocks.reduce((s, tb) => s + tb.lines.length, 0) : 0),
+    0
+  );
+  const warning =
+    totalLines === 0
+      ? `Nenhum texto foi encontrado em ${doc.numPages} página(s) após ${MAX_ATTEMPTS} tentativas — as imagens ficaram certas, mas grifar/anotar não vai funcionar. Tente "Reconverter PDF original" depois de publicar.`
+      : undefined;
+
+  return { blocks, warning };
+}
+
+async function convertOnce(
+  doc: any,
+  pdfjsLib: PdfjsLib,
+  onProgress?: (page: number, totalPages: number) => void
+): Promise<{ blocks: ContentBlock[]; diagnostics: string[] }> {
   const blocks: ContentBlock[] = [];
   const diagnostics: string[] = [];
 
@@ -288,10 +343,5 @@ export async function convertPdfToBlocks(
     await yieldToMain();
   }
 
-  if (blocks.length === 0) {
-    const detail = diagnostics.length > 0 ? diagnostics.slice(0, 3).join(" | ") : "sem detalhes";
-    throw new Error(`nada extraído de ${doc.numPages} página(s) — ${detail}`);
-  }
-
-  return blocks;
+  return { blocks, diagnostics };
 }

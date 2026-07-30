@@ -23,6 +23,7 @@ export default function NovoConteudoPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("form");
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [progress, setProgress] = useState({ page: 0, total: 0 });
 
   const [file, setFile] = useState<File | null>(null);
@@ -41,12 +42,15 @@ export default function NovoConteudoPage() {
       return;
     }
     setError(null);
+    setWarning(null);
     setStep("processing");
     try {
-      const result = await convertPdfToBlocks(file, (page, total) =>
-        setProgress({ page, total })
+      const { blocks: result, warning: convertWarning } = await convertPdfToBlocks(
+        file,
+        (page, total) => setProgress({ page, total })
       );
       setBlocks(result as EditableBlock[]);
+      setWarning(convertWarning ?? null);
       setStep("review");
     } catch (err) {
       console.error(err);
@@ -139,6 +143,12 @@ export default function NovoConteudoPage() {
           A extração é automática — confira se a divisão entre títulos,
           parágrafos e imagens ficou correta antes de publicar.
         </p>
+
+        {warning && (
+          <p className="mb-6 rounded-lg border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-gold">
+            {warning}
+          </p>
+        )}
 
         <BlockEditor blocks={blocks} onChange={setBlocks} />
 

@@ -49,6 +49,7 @@ export function EditContentForm({
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   // Video blocks live at the tail of `body` but are edited in their own
   // section, not the text/image BlockEditor — split them out once on mount.
@@ -81,6 +82,7 @@ export function EditContentForm({
     }
     setReconverting(true);
     setError(null);
+    setWarning(null);
     try {
       const supabase = createClient();
       const { data: pdfBlob, error: downloadError } = await supabase.storage
@@ -89,10 +91,12 @@ export function EditContentForm({
       if (downloadError || !pdfBlob) throw downloadError ?? new Error("PDF original não encontrado.");
 
       const file = new File([pdfBlob], "original.pdf", { type: "application/pdf" });
-      const result = await convertPdfToBlocks(file, (page, total) =>
-        setReconvertProgress({ page, total })
+      const { blocks: result, warning: convertWarning } = await convertPdfToBlocks(
+        file,
+        (page, total) => setReconvertProgress({ page, total })
       );
       setBlocks(result as EditableBlock[]);
+      setWarning(convertWarning ?? null);
     } catch (err) {
       console.error(err);
       const detail = err instanceof Error ? err.message : String(err);
@@ -249,6 +253,12 @@ export function EditContentForm({
           )}
           <BlockEditor blocks={blocks} onChange={setBlocks} />
         </div>
+
+        {warning && (
+          <p className="rounded-lg border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-gold">
+            {warning}
+          </p>
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
