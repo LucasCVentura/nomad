@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, MessageCircle, PanelRight } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Maximize,
+  MessageCircle,
+  Minimize,
+  PanelRight,
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +23,7 @@ import {
   SelectionToolbar,
   type PendingSelection,
 } from "@/components/reader/selection-toolbar";
+import { ContentRatingModal } from "@/components/reader/content-rating-modal";
 import { AnnotationsPanel } from "@/components/reader/annotations-panel";
 import { SidePanel } from "@/components/reader/side-panel";
 import { ChatThread, type ChatMessage } from "@/components/chat/chat-thread";
@@ -177,10 +185,13 @@ export function ReaderView({
   const [completed, setCompleted] = useState(initialCompleted);
   const [annotationsOpen, setAnnotationsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const articleRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const pageDragRef = useRef<{ blockIndex: number; tb: PageTextBlock; anchorWord: WordRange } | null>(null);
 
   const annotationsByParagraph = useMemo(() => {
@@ -239,6 +250,7 @@ export function ReaderView({
   async function markCompleted() {
     if (!contentId || completed) return;
     setCompleted(true);
+    setRatingModalOpen(true);
     const supabase = createClient();
     const {
       data: { session },
@@ -249,6 +261,40 @@ export function ReaderView({
       .update({ completed_at: new Date().toISOString() })
       .eq("user_id", session.user.id)
       .eq("content_id", contentId);
+  }
+
+  async function submitRating(rating: number) {
+    setRatingModalOpen(false);
+    if (!contentId) return;
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase
+      .from("purchases")
+      .update({ rating })
+      .eq("user_id", session.user.id)
+      .eq("content_id", contentId);
+  }
+
+  // Fullscreens the whole reader (header, toolbars and all) rather than just
+  // the text — annotations/chat stay reachable instead of getting stranded
+  // outside the fullscreen element.
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === rootRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      rootRef.current?.requestFullscreen();
+    }
   }
 
   useEffect(() => {
@@ -485,7 +531,7 @@ export function ReaderView({
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div ref={rootRef} className="flex h-screen flex-col bg-background">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/60 bg-background px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
@@ -500,8 +546,8 @@ export function ReaderView({
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="hidden items-center gap-2 sm:flex">
-            <Progress value={progress} className="w-28" />
-            <span className="text-xs text-muted-foreground">{progress}%</span>
+            <Progress value={completed ? 100 : progress} className="w-28" />
+            <span className="text-xs text-muted-foreground">{completed ? 100 : progress}%</span>
           </div>
           {completed ? (
             <span className="flex items-center gap-1.5 text-xs text-rose">
@@ -520,6 +566,17 @@ export function ReaderView({
               </Button>
             )
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden sm:inline-flex"
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+            <span className="hidden sm:inline">
+              {isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+            </span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -812,6 +869,12 @@ export function ReaderView({
           onCancel={cancelSelection}
         />
       )}
+
+      <ContentRatingModal
+        open={ratingModalOpen}
+        onOpenChange={setRatingModalOpen}
+        onSubmit={submitRating}
+      />
     </div>
   );
 }

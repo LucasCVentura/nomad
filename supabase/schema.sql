@@ -112,6 +112,8 @@ create table if not exists public.purchases (
   -- as updated for edits that happened before this column existed.
   updated_seen_at timestamptz not null default now(),
   purchased_at timestamptz not null default now(),
+  -- Asked once, right after the student marks the content as completed.
+  rating integer check (rating between 1 and 5),
   unique (user_id, content_id)
 );
 

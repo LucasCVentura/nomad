@@ -220,6 +220,7 @@ export type Database = {
           id: string
           progress: number
           purchased_at: string
+          rating: number | null
           updated_seen_at: string
           user_id: string
         }
@@ -229,6 +230,7 @@ export type Database = {
           id?: string
           progress?: number
           purchased_at?: string
+          rating?: number | null
           updated_seen_at?: string
           user_id: string
         }
@@ -238,6 +240,7 @@ export type Database = {
           id?: string
           progress?: number
           purchased_at?: string
+          rating?: number | null
           updated_seen_at?: string
           user_id?: string
         }
