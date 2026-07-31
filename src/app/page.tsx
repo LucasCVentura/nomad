@@ -20,6 +20,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { createClient } from "@/lib/supabase/server";
+import { listStoreContents } from "@/lib/store-contents";
 
 const features = [
   {
@@ -106,13 +107,7 @@ export default async function Home() {
   // store_contents, not contents: the storefront only ever needs the fields
   // that sell a course, and the table itself now hands out `body` — the
   // course — solely to whoever bought it.
-  const { data: contents } = await supabase
-    .from("store_contents")
-    .select("slug, title, category, format, pages, price, cover_image_url")
-    .order("created_at", { ascending: false })
-    .limit(6);
-
-  const catalog = contents ?? [];
+  const catalog = await listStoreContents(supabase, { limit: 6 });
 
   return (
     <div className="flex flex-1 flex-col">
@@ -324,10 +319,10 @@ export default async function Home() {
                   className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card transition-colors hover:border-rose/40"
                 >
                   <div className="flex aspect-4/3 items-center justify-center overflow-hidden bg-linear-to-br from-gold/15 to-rose/15">
-                    {item.cover_image_url ? (
+                    {item.coverImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={item.cover_image_url}
+                        src={item.coverImageUrl}
                         alt={item.title}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />

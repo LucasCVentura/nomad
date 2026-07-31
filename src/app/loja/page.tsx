@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { LojaGrid, type LojaItem } from "@/components/loja-grid";
 import { createClient } from "@/lib/supabase/server";
+import { listStoreContents } from "@/lib/store-contents";
 
 // This is the public showcase — anyone can browse it, logged in or not.
 // But if someone signed in lands here (an old link, the marketing nav...),
@@ -20,14 +21,8 @@ export default async function LojaPage() {
     redirect("/app/loja");
   }
 
-  const { data: contents } = await supabase
-    .from("store_contents")
-    .select("id, slug, title, category, format, pages, price, description, cover_image_url")
-    .order("created_at", { ascending: false });
-
-  const items: LojaItem[] = (contents ?? []).map((item) => ({
+  const items: LojaItem[] = (await listStoreContents(supabase)).map((item) => ({
     ...item,
-    coverImageUrl: item.cover_image_url,
     purchased: false,
   }));
 

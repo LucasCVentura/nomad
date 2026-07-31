@@ -52,6 +52,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "annotations_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "store_contents"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "annotations_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -181,7 +188,98 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conversations_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "store_contents"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          content_id: string
+          id: string
+          order_id: string
+          price: number
+        }
+        Insert: {
+          content_id: string
+          id?: string
+          order_id: string
+          price: number
+        }
+        Update: {
+          content_id?: string
+          id?: string
+          order_id?: string
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "store_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          asaas_payment_id: string | null
+          created_at: string
+          id: string
+          invoice_url: string | null
+          paid_at: string | null
+          status: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          asaas_payment_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_url?: string | null
+          paid_at?: string | null
+          status?: string
+          total: number
+          user_id: string
+        }
+        Update: {
+          asaas_payment_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_url?: string | null
+          paid_at?: string | null
+          status?: string
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -191,6 +289,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          asaas_customer_id: string | null
+          cpf: string | null
           created_at: string
           email: string | null
           id: string
@@ -198,6 +298,8 @@ export type Database = {
           name: string | null
         }
         Insert: {
+          asaas_customer_id?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id: string
@@ -205,6 +307,8 @@ export type Database = {
           name?: string | null
         }
         Update: {
+          asaas_customer_id?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -256,6 +360,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchases_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "store_contents"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchases_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -268,36 +379,60 @@ export type Database = {
     Views: {
       platform_stats: {
         Row: {
+          avg_rating: number | null
           materials_count: number | null
           professionals_count: number | null
-          avg_rating: number | null
           rating_count: number | null
         }
         Relationships: []
       }
       public_reviews: {
         Row: {
-          id: string
+          content_category: string | null
+          content_title: string | null
+          id: string | null
+          purchased_at: string | null
           rating: number | null
           review: string | null
-          content_title: string
-          content_category: string
-          purchased_at: string
         }
         Relationships: []
       }
       store_contents: {
         Row: {
-          id: string
-          slug: string
-          title: string
-          category: string
-          format: string
-          pages: number | null
-          price: number
-          description: string | null
+          category: string | null
           cover_image_url: string | null
-          created_at: string
+          created_at: string | null
+          description: string | null
+          format: string | null
+          id: string | null
+          pages: number | null
+          price: number | null
+          slug: string | null
+          title: string | null
+        }
+        Insert: {
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          format?: string | null
+          id?: string | null
+          pages?: number | null
+          price?: number | null
+          slug?: string | null
+          title?: string | null
+        }
+        Update: {
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          format?: string | null
+          id?: string | null
+          pages?: number | null
+          price?: number | null
+          slug?: string | null
+          title?: string | null
         }
         Relationships: []
       }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LojaGrid, type LojaItem } from "@/components/loja-grid";
 import { createClient } from "@/lib/supabase/server";
+import { listStoreContents } from "@/lib/store-contents";
 
 export default async function AppLojaPage() {
   const supabase = await createClient();
@@ -13,19 +14,15 @@ export default async function AppLojaPage() {
     redirect("/entrar?next=/app/loja");
   }
 
-  const [{ data: contents }, { data: purchases }] = await Promise.all([
-    supabase
-      .from("store_contents")
-      .select("id, slug, title, category, format, pages, price, description, cover_image_url")
-      .order("created_at", { ascending: false }),
+  const [contents, { data: purchases }] = await Promise.all([
+    listStoreContents(supabase),
     supabase.from("purchases").select("content_id").eq("user_id", session.user.id),
   ]);
 
   const purchasedIds = new Set((purchases ?? []).map((p) => p.content_id));
 
-  const items: LojaItem[] = (contents ?? []).map((item) => ({
+  const items: LojaItem[] = contents.map((item) => ({
     ...item,
-    coverImageUrl: item.cover_image_url,
     purchased: purchasedIds.has(item.id),
   }));
 
