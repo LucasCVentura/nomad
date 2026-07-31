@@ -10,10 +10,18 @@ export type EditableBlock = Exclude<ContentBlock, { type: "video" }>;
 export function BlockEditor({
   blocks,
   onChange,
+  previewUrls,
 }: {
   blocks: EditableBlock[];
   onChange: (blocks: EditableBlock[]) => void;
+  // Page images live in a private bucket, so a block's `url` is a path, not
+  // something an <img> can load. Signed links come in separately, for display
+  // only — the blocks themselves keep the paths, so a save never writes an
+  // expiring URL back into the content.
+  previewUrls?: Record<string, string>;
 }) {
+  const preview = (url: string) => previewUrls?.[url] ?? url;
+
   function updateBlock(index: number, block: EditableBlock) {
     const next = [...blocks];
     next[index] = block;
@@ -64,7 +72,7 @@ export function BlockEditor({
             {block.type === "image" && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={block.url}
+                src={preview(block.url)}
                 alt={block.alt ?? "Imagem do conteúdo"}
                 className="h-40 w-auto max-w-xs rounded-lg border border-border/60 object-contain"
               />
@@ -74,7 +82,7 @@ export function BlockEditor({
               <div className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={block.url}
+                  src={preview(block.url)}
                   alt="Página do conteúdo"
                   className="h-40 w-auto rounded-lg border border-border/60 object-contain"
                 />

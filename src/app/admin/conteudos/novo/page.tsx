@@ -12,7 +12,12 @@ import { BlockEditor, type EditableBlock } from "@/components/admin/block-editor
 import { CoverImageField } from "@/components/admin/cover-image-field";
 import { VideoAttachmentsField } from "@/components/admin/video-attachments-field";
 import { convertPdfToBlocks } from "@/lib/pdf-convert";
-import { uploadCoverImage, uploadVideoAttachments, type VideoAttachment } from "@/lib/content-media";
+import {
+  uploadContentImages,
+  uploadCoverImage,
+  uploadVideoAttachments,
+  type VideoAttachment,
+} from "@/lib/content-media";
 import { createClient } from "@/lib/supabase/client";
 import { slugify } from "@/lib/utils";
 import { CONTENT_CATEGORIES } from "@/lib/categories";
@@ -73,30 +78,7 @@ export default function NovoConteudoPage() {
           .upload(`${slug}/original.pdf`, file, { upsert: true });
       }
 
-      const finalBlocks: EditableBlock[] = [];
-      let imageIndex = 0;
-      for (const block of blocks) {
-        if (block.type !== "image" && block.type !== "page") {
-          finalBlocks.push(block);
-          continue;
-        }
-        if (!block.url.startsWith("data:")) {
-          finalBlocks.push(block);
-          continue;
-        }
-        const blob = await (await fetch(block.url)).blob();
-        const ext = block.type === "page" ? "jpg" : "png";
-        const path = `${slug}/${block.type}-${imageIndex++}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("content-images")
-          .upload(path, blob, {
-            contentType: block.type === "page" ? "image/jpeg" : "image/png",
-            upsert: true,
-          });
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from("content-images").getPublicUrl(path);
-        finalBlocks.push({ ...block, url: data.publicUrl });
-      }
+      const finalBlocks = await uploadContentImages(supabase, slug, blocks);
 
       const videoBlocks = await uploadVideoAttachments(supabase, slug, videos);
       const coverImageUrl = await uploadCoverImage(supabase, slug, coverFile);

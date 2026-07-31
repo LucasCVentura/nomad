@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/reader/reader-view";
 import { createClient } from "@/lib/supabase/server";
+import { signPageUrls } from "@/lib/content-media";
 import type { ContentBlock } from "@/lib/supabase/types";
 import type { Annotation } from "@/lib/annotation-utils";
 import type { ChatMessage } from "@/components/chat/chat-thread";
@@ -134,10 +135,14 @@ export default async function LerPage({
     note: a.note ?? undefined,
   }));
 
+  // The page images live in a private bucket, so they're paths in the stored
+  // body — signed here, per request, for whoever just proved she has access.
+  const blocks = await signPageUrls(supabase, row.body as ContentBlock[]);
+
   return (
     <ReaderView
       content={{ title: row.title, category: row.category }}
-      blocks={row.body as ContentBlock[]}
+      blocks={blocks}
       contentId={row.id}
       backHref={backHref}
       chat={chat}

@@ -3,9 +3,10 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
-> **Status:** os dois itens críticos foram tratados em 31/07/2026 — o
-> vazamento do conteúdo pago está fechado e verificado. Continua aberta uma
-> metade do item 2 (2b), que só pode ser fechada junto com o pagamento.
+> **Status (31/07/2026):** os dois itens críticos e o item 3 foram tratados —
+> o conteúdo pago não é mais acessível sem compra, nem pela API nem pelo
+> storage, e a linha do curso caiu de 7,74 MB para 214 KB. Continua aberta a
+> metade 2b, que só pode ser fechada junto com o pagamento.
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -136,7 +137,29 @@ sai, e só o webhook do gateway (com *service role*) passa a inserir em
 
 ### 3. 7,74 MB numa única linha do banco (imagens em base64)
 
-- [ ] Mover páginas para o storage
+- [x] ~~Mover páginas para o storage~~ — **resolvido em 31/07/2026**
+
+> **A causa real era outra, e melhor:** o fluxo de *criar* conteúdo sempre
+> subiu as páginas para o storage. Quem não subia era o *salvar* da tela de
+> editar — então toda reconversão gravava o curso inteiro em base64 de volta
+> na linha. (As 4 reconversões feitas durante o conserto do grifo, em
+> 31/07, foram o que inflou a linha até 7,74 MB.)
+>
+> **O que mudou:**
+> - a subida virou `uploadContentImages` em `src/lib/content-media.ts`, usada
+>   pelos **dois** fluxos — era código duplicado só no de criar;
+> - as páginas saíram de `content-images` (público) para o bucket
+>   **`content-pages`, privado**, com URL assinada gerada por requisição
+>   (`signPageUrls`). O slug é público, então no bucket público bastava montar
+>   `/content-images/<slug>/page-0.jpg` para baixar o curso — **havia 18
+>   páginas expostas assim, já removidas**;
+> - o conteúdo publicado foi migrado (18 imagens) e a linha caiu de
+>   **7,74 MB para 214 KB**.
+>
+> **Verificado:** URL pública adivinhada → 400; visitante tentando assinar →
+> negado; admin assina e baixa → 200. Leitor abre em ~2 s com 18/18 imagens,
+> grifo funcionando por cima; miniaturas da tela de editar 18/18; capa e
+> vitrine intactas. Reconverter + salvar de novo mantém a linha em 214 KB.
 
 **Constatado:** medindo a linha do conteúdo publicado — 7,74 MB de JSON, dos
 quais **97% são imagem em base64**. O texto e a geometria do grifo somam
@@ -161,8 +184,9 @@ cai para ~200 KB e as imagens passam a carregar sob demanda.
 > público (correto para capas, que são material de vitrine — errado para as
 > páginas do curso).
 
-Aproveitar para adicionar `loading="lazy"` nas imagens de página: hoje
-nenhuma das 9 tags `<img>` do projeto tem.
+Fica em aberto, como melhoria menor: adicionar `loading="lazy"` nas imagens
+de página — hoje nenhuma das 9 tags `<img>` do projeto tem, então as 18
+páginas são buscadas de uma vez.
 
 ---
 

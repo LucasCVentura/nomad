@@ -259,6 +259,14 @@ insert into storage.buckets (id, name, public)
 values ('content-pdfs', 'content-pdfs', false)
 on conflict (id) do nothing;
 
+-- content-pages: cada página do PDF convertida em imagem. É o produto pago,
+-- então o bucket é privado e o app assina as URLs na hora de renderizar —
+-- num bucket público bastaria montar a URL a partir do slug (que é público)
+-- para baixar o curso inteiro, página por página.
+insert into storage.buckets (id, name, public)
+values ('content-pages', 'content-pages', false)
+on conflict (id) do nothing;
+
 create policy "Public read of content images"
   on storage.objects for select
   using (bucket_id = 'content-images');
@@ -290,6 +298,35 @@ create policy "Only admin can update content videos"
 create policy "Only admin can delete content videos"
   on storage.objects for delete
   using (bucket_id = 'content-videos' and public.is_admin());
+
+-- O primeiro segmento do caminho é o slug do curso: `<slug>/page-0.jpg`.
+create policy "Buyers and admin can read content pages"
+  on storage.objects for select
+  using (
+    bucket_id = 'content-pages'
+    and (
+      public.is_admin()
+      or exists (
+        select 1
+        from public.purchases p
+        join public.contents c on c.id = p.content_id
+        where p.user_id = auth.uid()
+          and c.slug = split_part(storage.objects.name, '/', 1)
+      )
+    )
+  );
+
+create policy "Only admin can upload content pages"
+  on storage.objects for insert
+  with check (bucket_id = 'content-pages' and public.is_admin());
+
+create policy "Only admin can update content pages"
+  on storage.objects for update
+  using (bucket_id = 'content-pages' and public.is_admin());
+
+create policy "Only admin can delete content pages"
+  on storage.objects for delete
+  using (bucket_id = 'content-pages' and public.is_admin());
 
 create policy "Only admin can access source pdfs"
   on storage.objects for select

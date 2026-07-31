@@ -12,6 +12,7 @@ import { BlockEditor, type EditableBlock } from "@/components/admin/block-editor
 import { CoverImageField } from "@/components/admin/cover-image-field";
 import { VideoAttachmentsField } from "@/components/admin/video-attachments-field";
 import {
+  uploadContentImages,
   uploadCoverImage,
   uploadVideoAttachments,
   type VideoAttachment,
@@ -25,11 +26,14 @@ export function EditContentForm({
   contentId,
   slug,
   hasSourcePdf,
+  previewUrls,
   initial,
 }: {
   contentId: string;
   slug: string;
   hasSourcePdf: boolean;
+  // Signed links for the stored page paths, display-only (see BlockEditor).
+  previewUrls?: Record<string, string>;
   initial: {
     title: string;
     category: string;
@@ -111,6 +115,10 @@ export function EditContentForm({
     setError(null);
     try {
       const supabase = createClient();
+      // Reconverting hands back pages as inline `data:` URLs. Saving those
+      // as-is was writing the whole course into the row as base64 — this is
+      // the step the create flow always had and this one was missing.
+      const storedBlocks = await uploadContentImages(supabase, slug, blocks);
       const videoBlocks = await uploadVideoAttachments(supabase, contentId, videos);
       const coverImageUrl = coverFile
         ? await uploadCoverImage(supabase, contentId, coverFile)
@@ -124,7 +132,7 @@ export function EditContentForm({
           price: Number(price.replace(",", ".")) || 0,
           description,
           status,
-          body: [...blocks, ...videoBlocks],
+          body: [...storedBlocks, ...videoBlocks],
           cover_image_url: coverImageUrl,
           updated_at: new Date().toISOString(),
         })
@@ -251,7 +259,7 @@ export function EditContentForm({
               className="mb-3"
             />
           )}
-          <BlockEditor blocks={blocks} onChange={setBlocks} />
+          <BlockEditor blocks={blocks} onChange={setBlocks} previewUrls={previewUrls} />
         </div>
 
         {warning && (
