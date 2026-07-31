@@ -3,6 +3,10 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
+> **Status:** os dois itens críticos foram tratados em 31/07/2026 — o
+> vazamento do conteúdo pago está fechado e verificado. Continua aberta uma
+> metade do item 2 (2b), que só pode ser fechada junto com o pagamento.
+
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
 
@@ -12,7 +16,18 @@ Ordenado por urgência, não por esforço.
 
 ### 1. O conteúdo pago é baixável por qualquer pessoa, sem conta
 
-- [ ] **Corrigir antes de divulgar a plataforma**
+- [x] ~~**Corrigir antes de divulgar a plataforma**~~ — **resolvido em 31/07/2026**
+
+> **Como foi fechado:** patch aplicado no banco
+> (`supabase/patches/2026-07-31-acesso-ao-conteudo.sql`) + telas de loja
+> passando a ler a view `store_contents`.
+>
+> Verificado depois da correção, repetindo o mesmo teste que expôs a falha:
+> - visitante sem conta lendo `contents.body` → **0 linhas**;
+> - aluna logada que não comprou → **0 conteúdos** (vitrine continua visível);
+> - Dra. (admin) → continua lendo normalmente;
+> - landing, `/loja`, `/app/loja`, leitor e admin → todos funcionando, sem
+>   erro de runtime; slug inexistente ainda dá 404.
 
 **Constatado:** consultando a API do Supabase sem nenhum login, usando apenas
 a chave anônima (que fica no bundle do navegador de todo visitante), retorna:
@@ -69,26 +84,43 @@ O leitor (`src/app/app/ler/[slug]/page.tsx`) e o admin continuam em
 
 ### 2. Qualquer usuário logado pode se dar acesso a qualquer curso
 
-- [ ] **Tem que ser corrigido junto com a entrada do pagamento**
+Este item tem duas metades. Uma foi resolvida; a outra depende do pagamento.
+
+#### 2a. Trocar o curso comprado por outro via update
+
+- [x] ~~Restringir as colunas que a aluna pode alterar~~ — **resolvido em 31/07/2026**
+
+A policy `"Users can update own purchase progress"` valida apenas o
+`user_id`, ou seja, escopa a *linha* mas não as *colunas* — dava para
+reescrever o `content_id` e trocar o curso barato comprado pelo caro.
+
+Fechado com *column grants* no mesmo patch do item 1. Estado atual conferido
+no banco:
+
+```
+update permitido (authenticated): completed_at, progress, rating, review, updated_seen_at
+update do anon:                   (nenhum)
+```
+
+#### 2b. Criar a própria compra pela API
+
+- [ ] **Só pode ser fechado junto com a entrada do pagamento**
 
 **Causa:** a policy de insert em `purchases` é
 `with check (auth.uid() = user_id or public.is_admin())` — o próprio usuário
-cria a própria compra. Hoje isso é coerente, porque o checkout
-(`src/components/cart-drawer.tsx`) libera na hora sem cobrar nada.
+cria a própria compra.
 
-**Por que importa:** quando o pagamento entrar, se essa regra ficar como
-está, o gateway vira decoração — dá pra criar a compra direto pela API sem
-passar pelo checkout.
+**Por que não dá para fechar agora:** o checkout
+(`src/components/cart-drawer.tsx`) insere a compra direto do navegador, sem
+cobrança. Remover a permissão hoje deixaria ninguém "comprando" nada.
 
-**Correção:** só o webhook de pagamento (com *service role*) deve inserir em
-`purchases`. A policy de insert para o usuário comum sai.
+**Por que não pode ser esquecido:** se essa regra continuar como está quando
+o pagamento entrar, o gateway vira decoração — dá para criar a compra pela
+API sem passar pelo checkout.
 
-**Variação do mesmo problema:** a policy de update
-(`"Users can update own purchase progress"`) valida apenas `user_id`, então
-o usuário pode alterar qualquer coluna da própria linha — inclusive o
-`content_id`, trocando o curso barato que comprou pelo caro. Restringir às
-colunas que a aluna realmente controla (`progress`, `completed_at`,
-`rating`, `review`, `updated_seen_at`).
+**Correção (junto com o pagamento):** a policy de insert para o usuário comum
+sai, e só o webhook do gateway (com *service role*) passa a inserir em
+`purchases`.
 
 ---
 
