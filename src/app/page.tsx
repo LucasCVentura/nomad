@@ -1,14 +1,11 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import {
   ShoppingBag,
   Highlighter,
   GraduationCap,
   MessageCircle,
-  Star,
   ArrowRight,
   ArrowUpRight,
-  MoveHorizontal,
   FileText,
   User,
 } from "lucide-react";
@@ -106,26 +103,12 @@ function Kicker({ children }: { children: React.ReactNode }) {
 export default async function Home() {
   const supabase = await createClient();
 
-  const [{ data: stats }, { data: reviews }, { data: contents }] = await Promise.all([
-    supabase.from("platform_stats").select("*").single(),
-    supabase.from("public_reviews").select("*").limit(12),
-    supabase
-      .from("contents")
-      .select("title, category, format, pages")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(5),
-  ]);
-
-  const statItems = [
-    stats?.materials_count
-      ? { value: String(stats.materials_count), label: "materiais" }
-      : null,
-    stats?.rating_count ? { value: stats.avg_rating!.toFixed(1), label: "avaliação" } : null,
-    stats?.professionals_count
-      ? { value: String(stats.professionals_count), label: "profissionais" }
-      : null,
-  ].filter((item): item is { value: string; label: string } => item !== null);
+  const { data: contents } = await supabase
+    .from("contents")
+    .select("slug, title, category, format, pages, price, cover_image_url")
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
+    .limit(6);
 
   const catalog = contents ?? [];
 
@@ -191,20 +174,6 @@ export default async function Home() {
                   Ver conteúdos
                 </Button>
               </div>
-
-              {statItems.length > 0 && (
-                <div className="mt-14 flex items-center gap-8">
-                  {statItems.map((item, index) => (
-                    <Fragment key={item.label}>
-                      {index > 0 && <span className="h-8 w-px bg-border" />}
-                      <div>
-                        <p className="font-heading text-2xl text-foreground">{item.value}</p>
-                        <p className="text-xs text-muted-foreground">{item.label}</p>
-                      </div>
-                    </Fragment>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Product mockup: annotation viewer */}
@@ -240,41 +209,6 @@ export default async function Home() {
                 <MessageCircle className="size-3.5 text-rose" />
                 <span className="text-xs text-foreground">Resposta direto da Dra. Nathalia</span>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features */}
-        <section id="recursos" className="border-b border-border/60 px-6 py-24">
-          <div className="mx-auto max-w-6xl">
-            <div className="max-w-xl">
-              <Kicker>O que você recebe</Kicker>
-              <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
-                Tudo o que você precisa pra estudar de verdade
-              </h2>
-            </div>
-            <div className="mt-14 divide-y divide-border/60 md:grid md:grid-cols-2 md:gap-x-16 md:divide-y-0">
-              {features.map((feature, index) => (
-                <div
-                  key={feature.title}
-                  className="flex items-start gap-6 border-border/60 py-8 md:border-t"
-                >
-                  <span className="font-heading text-3xl italic text-gold/70">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <div className="mb-1 flex items-center gap-2">
-                      <feature.icon className="size-4 text-rose" />
-                      <h3 className="font-heading text-lg text-foreground">
-                        {feature.title}
-                      </h3>
-                    </div>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      {feature.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </section>
@@ -325,9 +259,44 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* Features */}
+        <section id="recursos" className="border-b border-border/60 px-6 py-24">
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-xl">
+              <Kicker>O que você recebe</Kicker>
+              <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
+                Tudo o que você precisa pra estudar de verdade
+              </h2>
+            </div>
+            <div className="mt-14 divide-y divide-border/60 md:grid md:grid-cols-2 md:gap-x-16 md:divide-y-0">
+              {features.map((feature, index) => (
+                <div
+                  key={feature.title}
+                  className="flex items-start gap-6 border-border/60 py-8 md:border-t"
+                >
+                  <span className="font-heading text-3xl italic text-gold/70">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div>
+                    <div className="mb-1 flex items-center gap-2">
+                      <feature.icon className="size-4 text-rose" />
+                      <h3 className="font-heading text-lg text-foreground">
+                        {feature.title}
+                      </h3>
+                    </div>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Catalog shelf */}
-        <section id="conteudos" className="border-b border-border/60 py-24">
-          <div className="mx-auto max-w-6xl px-6">
+        <section id="conteudos" className="border-b border-border/60 px-6 py-24">
+          <div className="mx-auto max-w-6xl">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <Kicker>Na loja agora</Kicker>
@@ -344,36 +313,49 @@ export default async function Home() {
                 <ArrowUpRight className="size-4" />
               </Button>
             </div>
-          </div>
 
-          <div className="mt-4 flex items-center gap-1.5 px-6 text-xs text-muted-foreground sm:hidden">
-            <MoveHorizontal className="size-3.5" />
-            arraste pra ver mais
-          </div>
-
-          <div className="mt-8 flex gap-5 overflow-x-auto px-6 pb-4 no-scrollbar snap-x snap-mandatory sm:mt-10">
-            {catalog.map((item, index) => (
-              <div
-                key={item.title}
-                className={`group w-64 shrink-0 snap-start rounded-2xl border border-border/60 bg-card p-5 transition-transform hover:-translate-y-1 hover:border-rose/40 ${
-                  index % 2 === 0 ? "sm:rotate-1" : "sm:-rotate-1"
-                } sm:hover:rotate-0`}
-              >
-                <div className="mb-4 flex aspect-3/4 items-center justify-center rounded-lg bg-linear-to-br from-gold/15 to-rose/15">
-                  <FileText className="size-8 text-gold" />
-                </div>
-                <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-                  {item.category}
-                </span>
-                <h3 className="mt-1.5 font-heading text-base leading-snug text-foreground">
-                  {item.title}
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {item.format} · {item.pages ?? "—"} páginas
-                </p>
-              </div>
-            ))}
-            <div className="w-1 shrink-0" />
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {catalog.map((item) => (
+                <Link
+                  key={item.slug}
+                  href="/loja"
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card transition-colors hover:border-rose/40"
+                >
+                  <div className="flex aspect-4/3 items-center justify-center overflow-hidden bg-linear-to-br from-gold/15 to-rose/15">
+                    {item.cover_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.cover_image_url}
+                        alt={item.title}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <FileText className="size-8 text-gold" />
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col p-5">
+                    <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
+                      {item.category}
+                    </span>
+                    <h3 className="mt-1.5 font-heading text-lg leading-snug text-foreground">
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.format} · {item.pages ?? "—"} páginas
+                    </p>
+                    <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
+                      <span className="font-heading text-lg text-foreground">
+                        R$ {item.price.toFixed(2).replace(".", ",")}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-rose opacity-0 transition-opacity group-hover:opacity-100">
+                        Ver na loja
+                        <ArrowUpRight className="size-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -468,36 +450,6 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Testimonials marquee — only appears once real ratings with a
-            written comment start coming in; no placeholder quotes shown
-            meanwhile. */}
-        {reviews && reviews.length > 0 && (
-          <section className="border-b border-border/60 py-24">
-            <div className="mx-auto max-w-6xl px-6">
-              <Kicker>Depoimentos</Kicker>
-              <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
-                Quem já estuda por aqui
-              </h2>
-            </div>
-
-            <div className="mt-12">
-              <div data-marquee className="fade-edges-x overflow-hidden">
-                <div className="flex w-max animate-marquee-left gap-4">
-                  {[...reviews, ...reviews].map((r, i) => (
-                    <TestimonialCard
-                      key={i}
-                      rating={r.rating ?? 5}
-                      quote={r.review!}
-                      contentTitle={r.content_title}
-                      contentCategory={r.content_category}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* FAQ */}
         <section id="duvidas" className="border-b border-border/60 px-6 py-24">
           <div className="mx-auto max-w-3xl">
@@ -557,38 +509,6 @@ export default async function Home() {
       </main>
 
       <SiteFooter />
-    </div>
-  );
-}
-
-function TestimonialCard({
-  rating,
-  quote,
-  contentTitle,
-  contentCategory,
-}: {
-  rating: number;
-  quote: string;
-  contentTitle: string;
-  contentCategory: string;
-}) {
-  return (
-    <div className="w-80 shrink-0 rounded-2xl border border-border/60 bg-card p-5">
-      <div className="flex gap-0.5 text-gold">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star
-            key={i}
-            className={`size-3 ${i < rating ? "fill-current" : "text-muted-foreground/30"}`}
-          />
-        ))}
-      </div>
-      <p className="mt-3 text-sm leading-relaxed text-foreground">
-        &quot;{quote}&quot;
-      </p>
-      <p className="mt-4 text-xs text-muted-foreground">
-        Avaliação de <span className="text-foreground">{contentCategory}</span> ·{" "}
-        {contentTitle}
-      </p>
     </div>
   );
 }
