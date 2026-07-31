@@ -102,6 +102,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valor inválido." }, { status: 400 });
   }
 
+  // Voltar ao carrinho e clicar de novo não pode gerar uma segunda cobrança
+  // pelo mesmo curso: ela acabaria com dois Pix abertos e poderia pagar os
+  // dois, ficando com uma cobrança a mais e um curso só. Se já existe um
+  // pedido pendente com exatamente estes itens, devolve o que já está lá.
+  const wanted = [...items.map((item) => item.id)].sort().join(",");
+  const { data: pendentes } = await admin
+    .from("orders")
+    .select("id, invoice_url, order_items(content_id)")
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .not("invoice_url", "is", null);
+
+  const jaAberto = (pendentes ?? []).find(
+    (order) =>
+      order.order_items
+        .map((i) => i.content_id)
+        .sort()
+        .join(",") === wanted
+  );
+  if (jaAberto?.invoice_url) {
+    return NextResponse.json({ invoiceUrl: jaAberto.invoice_url, orderId: jaAberto.id, reused: true });
+  }
+
   try {
     // Cliente no Asaas: criado uma vez por aluna e reaproveitado depois.
     let customerId = profile?.asaas_customer_id ?? null;
