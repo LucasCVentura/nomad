@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, User } from "lucide-react";
+import { LayoutGrid, ShoppingBag, Receipt, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/app", label: "Conteúdos", icon: LayoutGrid },
   { href: "/app/loja", label: "Loja", icon: ShoppingBag },
+  { href: "/app/pedidos", label: "Pedidos", icon: Receipt },
   { href: "/app/conta", label: "Conta", icon: User },
 ];
 

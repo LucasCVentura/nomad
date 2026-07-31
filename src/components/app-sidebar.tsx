@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, Settings2 } from "lucide-react";
+import { LayoutGrid, ShoppingBag, Receipt, Settings2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/app", label: "Meus conteúdos", icon: LayoutGrid },
   { href: "/app/loja", label: "Loja", icon: ShoppingBag },
+  { href: "/app/pedidos", label: "Meus pedidos", icon: Receipt },
   { href: "#", label: "Configurações", icon: Settings2, soon: true },
 ];
 
