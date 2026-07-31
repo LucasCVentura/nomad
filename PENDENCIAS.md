@@ -3,10 +3,10 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
-> **Status (31/07/2026):** itens 1, 2a, 3 e 4 resolvidos — o conteúdo pago não
-> é mais acessível sem compra (nem pela API nem pelo storage), a linha do curso
-> caiu de 7,74 MB para 214 KB, e as avaliações das alunas agora têm tela.
-> Continua aberta a metade 2b, que depende do pagamento, e os itens menores.
+> **Status (31/07/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6 e 9.
+> Continuam abertos: **2b** (depende do pagamento), **7** (recuperação de
+> senha — aguardando o domínio para ter um e-mail próprio) e **8** (limite de
+> tamanho do PDF).
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -225,7 +225,23 @@ e voltam a ser úteis quando os depoimentos voltarem à landing.
 
 ### 5. Reconverter ou editar um conteúdo quebra os grifos das alunas
 
-- [ ] Decidir estratégia (avisar × re-ancorar)
+- [x] ~~Decidir estratégia (avisar × re-ancorar)~~ — **resolvido em 31/07/2026**
+
+> Re-ancoragem, feita a cada carregamento do leitor
+> (`reanchorAnnotation` em `src/lib/annotation-utils.ts`): se os offsets não
+> caem mais sobre o trecho guardado, o trecho é procurado de novo — primeiro
+> no parágrafo de origem, depois no conteúdo inteiro. O que realmente sumiu
+> (passagem reescrita ou removida) deixa de ser desenhado, em vez de aparecer
+> no lugar errado. Nada é apagado do banco, e a correção não depende de
+> escrita: é recalculada na leitura.
+>
+> O aviso da reconversão também foi reescrito — ele falava só das edições da
+> Dra. e não mencionava as marcações das alunas.
+>
+> **Verificado:** corrompi de propósito o `paragraph_id` e os offsets de uma
+> anotação real no banco; ela voltou a renderizar no lugar certo. (Duas outras
+> anotações no banco são da "Aluna Teste" — a Dra. só vê as dela, como
+> esperado.) Offsets restaurados depois do teste.
 
 **Causa:** as anotações são ancoradas por `paragraph_id` + posição de
 caractere (`start_offset` / `end_offset`). Se a Dra. reconverter o PDF ou
@@ -247,7 +263,10 @@ e não menciona as anotações das alunas.
 
 ### 6. No celular não dá para apagar uma anotação
 
-- [ ] Trocar o hover por visibilidade permanente no touch
+- [x] ~~Trocar o hover por visibilidade permanente no touch~~ — **resolvido em 31/07/2026**
+
+> Visível por padrão, com o hover mantido só a partir de `sm` (e agora também
+> revelado por foco de teclado). **Verificado:** opacidade 1 no iPhone 13.
 
 O botão "Remover" em `src/components/reader/annotations-panel.tsx` usa
 `opacity-0 ... group-hover:opacity-100`. Em telas de toque não existe hover,
@@ -274,7 +293,14 @@ explícito — e ele fica bem mais folgado depois do item 3.
 
 ### 9. O grifo é salvo sem verificar se deu certo
 
-- [ ] Tratar falha de gravação
+- [x] ~~Tratar falha de gravação~~ — **resolvido em 31/07/2026**
+
+> A atualização otimista continua (marcar não espera a rede), mas agora um
+> erro na escrita desfaz a marcação e avisa numa faixa temporária, em vez de
+> deixar na tela algo que já se perdeu. Vale para criar e para remover.
+>
+> **Verificado:** derrubando só as requisições de `annotations`, a marcação
+> aparece e é revertida, com o aviso na tela.
 
 Em `src/components/reader/reader-view.tsx`, `persistAnnotation` e
 `deleteAnnotation` disparam a escrita sem aguardar nem tratar erro

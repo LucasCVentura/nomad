@@ -79,7 +79,7 @@ export function EditContentForm({
   async function handleReconvert() {
     if (
       !confirm(
-        "Isso vai buscar o PDF original e refazer o texto/imagens do conteúdo do zero, usando o conversor mais recente. Suas anotações de texto e a ordem que você ajustou manualmente serão substituídas. Vídeos e capa não são afetados. Continuar?"
+        "Isso vai buscar o PDF original e refazer o texto/imagens do conteúdo do zero, usando o conversor mais recente. Suas edições de texto e a ordem que você ajustou manualmente serão substituídas. Vídeos e capa não são afetados.\n\nOs grifos e anotações das alunas são reposicionados automaticamente pelo trecho que elas marcaram — só se perde o que estiver num trecho que você reescrever ou remover. Continuar?"
       )
     ) {
       return;

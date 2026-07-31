@@ -1,3 +1,5 @@
+import type { ContentBlock } from "@/lib/supabase/types";
+
 export type Annotation = {
   id: string;
   paragraphId: string;
@@ -6,6 +8,65 @@ export type Annotation = {
   text: string;
   note?: string;
 };
+
+/**
+ * The source text behind every annotatable id, keyed the same way the reader
+ * keys them. Used both to render and to re-anchor stored annotations.
+ */
+export function buildParagraphTextMap(blocks: ContentBlock[]): Map<string, string> {
+  const map = new Map<string, string>();
+  let paragraphIndex = 0;
+  blocks.forEach((block, blockIndex) => {
+    if (block.type === "page") {
+      block.textBlocks.forEach((tb) => map.set(`pg${blockIndex}-${tb.id}`, tb.text));
+    } else if (block.type === "paragraph") {
+      map.set(`p-${paragraphIndex++}`, block.text);
+    }
+  });
+  return map;
+}
+
+/**
+ * Annotations are stored as character offsets into a paragraph, so anything
+ * that reshapes the content — the doctor reconverting the PDF, or editing the
+ * text — slides them out of place, and they'd redraw over the wrong words
+ * without any sign of it.
+ *
+ * Each annotation also carries the excerpt it was made on, which is what makes
+ * recovery possible: if the offsets no longer land on that excerpt, look the
+ * excerpt up again — first where it used to be, then anywhere in the content.
+ * Returns null when it genuinely isn't there anymore (the passage was
+ * rewritten or removed), in which case the caller should leave it out rather
+ * than draw it somewhere wrong.
+ */
+export function reanchorAnnotation(
+  annotation: Annotation,
+  paragraphText: Map<string, string>
+): Annotation | null {
+  const excerpt = annotation.text.trim();
+  if (!excerpt) return null;
+
+  const current = paragraphText.get(annotation.paragraphId);
+  if (current && current.slice(annotation.start, annotation.end).trim() === excerpt) {
+    return annotation;
+  }
+
+  // Same paragraph first: a reconvert of the same PDF usually only nudges the
+  // offsets, so this is both the common case and the least ambiguous one.
+  if (current) {
+    const at = current.indexOf(excerpt);
+    if (at !== -1) return { ...annotation, start: at, end: at + excerpt.length };
+  }
+
+  for (const [paragraphId, text] of paragraphText) {
+    const at = text.indexOf(excerpt);
+    if (at !== -1) {
+      return { ...annotation, paragraphId, start: at, end: at + excerpt.length };
+    }
+  }
+
+  return null;
+}
 
 export function getTextOffset(root: Node, node: Node, offset: number) {
   const preRange = document.createRange();

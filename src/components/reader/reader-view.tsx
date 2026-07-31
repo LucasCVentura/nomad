@@ -13,6 +13,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
+  buildParagraphTextMap,
   getParagraphSegments,
   getTextOffset,
   rangesOverlap,
@@ -116,22 +117,14 @@ export function ReaderView({
   // Full source text behind every annotatable id, so a merged highlight can
   // re-slice its own (now longer) range instead of being stuck with just the
   // text of whichever selection happened to be made last.
-  const paragraphTextById = useMemo(() => {
-    const map = new Map<string, string>();
-    blocks.forEach((block, blockIndex) => {
-      if (block.type === "page") {
-        block.textBlocks.forEach((tb) => map.set(`pg${blockIndex}-${tb.id}`, tb.text));
-      }
-    });
-    paragraphMeta.byBlockIndex.forEach((meta) => map.set(meta.id, meta.text));
-    return map;
-  }, [blocks, paragraphMeta]);
+  const paragraphTextById = useMemo(() => buildParagraphTextMap(blocks), [blocks]);
 
   const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
   const [pending, setPending] = useState<PendingSelection | null>(null);
   // The floating toolbar renders right under the pointer, so showing it
   // mid-drag makes it jitter along with the selection; it waits for mouseup.
   const [draggingPage, setDraggingPage] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [mobileAnchor, setMobileAnchor] = useState<{
     paragraphId: string;
     start: number;
@@ -150,6 +143,14 @@ export function ReaderView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const pageDragRef = useRef<{ blockIndex: number; tb: PageTextBlock; anchorWord: WordRange } | null>(null);
+
+  // The warning is transient: it says what went wrong, then gets out of the
+  // way rather than sitting over the text for the rest of the session.
+  useEffect(() => {
+    if (!saveError) return;
+    const timeout = window.setTimeout(() => setSaveError(null), 6000);
+    return () => window.clearTimeout(timeout);
+  }, [saveError]);
 
   const annotationsByParagraph = useMemo(() => {
     const map = new Map<string, Annotation[]>();
@@ -456,28 +457,43 @@ export function ReaderView({
   }
 
   // Annotations live in the `annotations` table, keyed by user + content, so
-  // they survive a reload. Writes are fire-and-forget behind the optimistic
-  // state update — a marking never blocks the reader on a round trip.
-  async function persistAnnotation(annotation: Annotation, replacedIds: string[]) {
+  // they survive a reload. The local state updates first so marking never
+  // waits on the network — but if the write then fails, that optimistic state
+  // is rolled back and said out loud, instead of leaving a mark on screen that
+  // is already gone and will vanish on the next visit.
+  async function persistAnnotation(
+    annotation: Annotation,
+    replacedIds: string[],
+    rollbackTo: Annotation[]
+  ) {
     if (!contentId) return;
-    const supabase = createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return;
-    if (replacedIds.length > 0) {
-      await supabase.from("annotations").delete().in("id", replacedIds);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("sessão expirada");
+
+      if (replacedIds.length > 0) {
+        const { error } = await supabase.from("annotations").delete().in("id", replacedIds);
+        if (error) throw error;
+      }
+      const { error } = await supabase.from("annotations").insert({
+        id: annotation.id,
+        user_id: session.user.id,
+        content_id: contentId,
+        paragraph_id: annotation.paragraphId,
+        start_offset: annotation.start,
+        end_offset: annotation.end,
+        text: annotation.text,
+        note: annotation.note ?? null,
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.error("[annotations] falha ao salvar:", err);
+      setAnnotations(rollbackTo);
+      setSaveError("Não consegui salvar sua marcação. Confira a conexão e tente de novo.");
     }
-    await supabase.from("annotations").insert({
-      id: annotation.id,
-      user_id: session.user.id,
-      content_id: contentId,
-      paragraph_id: annotation.paragraphId,
-      start_offset: annotation.start,
-      end_offset: annotation.end,
-      text: annotation.text,
-      note: annotation.note ?? null,
-    });
   }
 
   function commitAnnotation(note?: string) {
@@ -505,12 +521,13 @@ export function ReaderView({
       note: notes.length > 0 ? Array.from(new Set(notes)).join("\n") : undefined,
     };
     const replacedIds = overlapping.map((a) => a.id);
+    const rollbackTo = annotations;
 
     setAnnotations((prev) => [
       ...prev.filter((a) => !replacedIds.includes(a.id)),
       merged,
     ]);
-    void persistAnnotation(merged, replacedIds);
+    void persistAnnotation(merged, replacedIds, rollbackTo);
 
     window.getSelection()?.removeAllRanges();
     setPending(null);
@@ -539,13 +556,19 @@ export function ReaderView({
   }
 
   function deleteAnnotation(id: string) {
+    const rollbackTo = annotations;
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
     if (!contentId) return;
     // A Supabase query builder only fires once something awaits it —
     // `void`-ing the builder on its own would never send the request, and
     // the annotation would come back on the next reload.
     void (async () => {
-      await createClient().from("annotations").delete().eq("id", id);
+      const { error } = await createClient().from("annotations").delete().eq("id", id);
+      if (error) {
+        console.error("[annotations] falha ao remover:", error);
+        setAnnotations(rollbackTo);
+        setSaveError("Não consegui remover a marcação. Confira a conexão e tente de novo.");
+      }
     })();
   }
 
@@ -878,6 +901,17 @@ export function ReaderView({
           </SidePanel>
         )}
       </div>
+
+      {saveError && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-0 z-60 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
+          <p className="max-w-sm rounded-xl border border-destructive/40 bg-popover px-4 py-3 text-center text-sm text-foreground shadow-2xl shadow-black/40">
+            {saveError}
+          </p>
+        </div>
+      )}
 
       {pending && !draggingPage && (
         <SelectionToolbar

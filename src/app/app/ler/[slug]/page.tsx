@@ -3,7 +3,11 @@ import { ReaderView } from "@/components/reader/reader-view";
 import { createClient } from "@/lib/supabase/server";
 import { signPageUrls } from "@/lib/content-media";
 import type { ContentBlock } from "@/lib/supabase/types";
-import type { Annotation } from "@/lib/annotation-utils";
+import {
+  buildParagraphTextMap,
+  reanchorAnnotation,
+  type Annotation,
+} from "@/lib/annotation-utils";
 import type { ChatMessage } from "@/components/chat/chat-thread";
 
 export default async function LerPage({
@@ -126,18 +130,30 @@ export default async function LerPage({
     };
   }
 
-  const initialAnnotations: Annotation[] = (annotationRows ?? []).map((a) => ({
-    id: a.id,
-    paragraphId: a.paragraph_id,
-    start: a.start_offset,
-    end: a.end_offset,
-    text: a.text,
-    note: a.note ?? undefined,
-  }));
-
   // The page images live in a private bucket, so they're paths in the stored
   // body — signed here, per request, for whoever just proved she has access.
   const blocks = await signPageUrls(supabase, row.body as ContentBlock[]);
+
+  // Offsets are re-checked against the current text on every load, so a
+  // reconvert or an edit shifts the marks back into place instead of leaving
+  // them drawn over the wrong words. Anything whose excerpt is really gone is
+  // left out rather than shown somewhere it doesn't belong.
+  const paragraphText = buildParagraphTextMap(blocks);
+  const initialAnnotations = (annotationRows ?? [])
+    .map((a) =>
+      reanchorAnnotation(
+        {
+          id: a.id,
+          paragraphId: a.paragraph_id,
+          start: a.start_offset,
+          end: a.end_offset,
+          text: a.text,
+          note: a.note ?? undefined,
+        },
+        paragraphText
+      )
+    )
+    .filter((a): a is Annotation => a !== null);
 
   return (
     <ReaderView

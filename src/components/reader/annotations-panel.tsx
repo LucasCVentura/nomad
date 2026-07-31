@@ -51,7 +51,10 @@ export function AnnotationsPanel({
           </button>
           <button
             onClick={() => onDelete(annotation.id)}
-            className="mt-2 flex items-center gap-1 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+            // Visible by default: on a touch screen there's no hover, so
+            // hiding it behind one left no way at all to delete a marking.
+            // Desktop keeps the reveal-on-hover, plus on keyboard focus.
+            className="mt-2 flex items-center gap-1 text-xs text-muted-foreground transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
           >
             <Trash2 className="size-3.5" />
             Remover
