@@ -44,7 +44,7 @@ export function AnnotationsPanel({
               &quot;{annotation.text}&quot;
             </p>
             {annotation.note && (
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
                 {annotation.note}
               </p>
             )}

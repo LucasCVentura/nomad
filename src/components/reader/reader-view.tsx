@@ -29,76 +29,42 @@ import { SidePanel } from "@/components/reader/side-panel";
 import { ChatThread, type ChatMessage } from "@/components/chat/chat-thread";
 import { createClient } from "@/lib/supabase/client";
 import { useConversationUnread } from "@/lib/use-conversation-unread";
+import { getHighlightRects, hitTestPage } from "@/lib/page-geometry";
 import type { ContentBlock, PageTextBlock } from "@/lib/supabase/types";
 
 type WordRange = { start: number; end: number };
 
 // "page" blocks have no real DOM text to select — a highlight is just a
-// [start,end) range within the paragraph's concatenated text. Every stored
-// range already lands exactly on word boundaries (see hitTestPage below),
-// so a highlight is simply the union of its words' own measured boxes —
-// no left/right fraction estimating needed.
+// [start,end) range within the paragraph's concatenated text, drawn as one
+// rect per line it covers (see getHighlightRects).
 function renderPageHighlight(
   tb: PageTextBlock,
   range: { start: number; end: number },
   colorClass: string,
   key: string
 ) {
-  let cursor = 0;
-  const rects: React.ReactNode[] = [];
-  tb.words.forEach((word, wi) => {
-    const start = cursor;
-    const end = start + word.text.length;
-    cursor = end;
-    if (end <= range.start || start >= range.end) return;
-    rects.push(
-      <div
-        key={`${key}-${wi}`}
-        className={`pointer-events-none absolute rounded-sm ${colorClass}`}
-        style={{
-          left: `${word.xPct}%`,
-          top: `${word.yPct}%`,
-          width: `${word.widthPct}%`,
-          height: `${word.heightPct}%`,
-        }}
-      />
-    );
-  });
-  return rects;
-}
-
-// Maps a tap/drag point (as a % of the page image) to the nearest word —
-// preferring one the point actually falls inside, falling back to whichever
-// word's center is closest — and returns that word's exact [start,end)
-// range within the paragraph's text directly, since each word already
-// carries its own real measured box (no snapping step needed afterward).
-function hitTestPage(textBlocks: PageTextBlock[], xPct: number, yPct: number) {
-  let best: { tb: PageTextBlock; start: number; end: number; dist: number; inside: boolean } | null = null;
-  for (const tb of textBlocks) {
-    let cursor = 0;
-    for (const word of tb.words) {
-      const start = cursor;
-      const end = start + word.text.length;
-      cursor = end;
-      const insideX = xPct >= word.xPct && xPct <= word.xPct + word.widthPct;
-      const insideY = yPct >= word.yPct && yPct <= word.yPct + word.heightPct;
-      const inside = insideX && insideY;
-      const cx = word.xPct + word.widthPct / 2;
-      const cy = word.yPct + word.heightPct / 2;
-      const dist = Math.hypot(xPct - cx, yPct - cy);
-      if (best === null || (inside && !best.inside) || (inside === best.inside && dist < best.dist)) {
-        best = { tb, start, end, dist, inside };
-      }
-    }
-  }
-  return best ? { tb: best.tb, start: best.start, end: best.end } : null;
+  return getHighlightRects(tb, range).map((rect, i) => (
+    <div
+      key={`${key}-${i}`}
+      className={`pointer-events-none absolute rounded-sm ${colorClass}`}
+      style={{
+        left: `${rect.leftPct}%`,
+        top: `${rect.topPct}%`,
+        width: `${rect.widthPct}%`,
+        height: `${rect.heightPct}%`,
+      }}
+    />
+  ));
 }
 
 function computeHit(el: HTMLElement, clientX: number, clientY: number, textBlocks: PageTextBlock[]) {
   const rect = el.getBoundingClientRect();
   const xPct = ((clientX - rect.left) / rect.width) * 100;
   const yPct = ((clientY - rect.top) / rect.height) * 100;
-  return hitTestPage(textBlocks, xPct, yPct);
+  // The container carries the page's own aspect ratio, so its rendered box
+  // is the most reliable source for it — no need to thread the stored value
+  // down through every call site.
+  return hitTestPage(textBlocks, xPct, yPct, rect.width / rect.height);
 }
 
 export function ReaderView({
@@ -108,6 +74,7 @@ export function ReaderView({
   backHref = "/app",
   chat,
   initialCompleted = false,
+  initialAnnotations = [],
 }: {
   content: { title: string; category: string };
   blocks: ContentBlock[];
@@ -120,6 +87,7 @@ export function ReaderView({
     unreadCount: number;
   };
   initialCompleted?: boolean;
+  initialAnnotations?: Annotation[];
 }) {
   // Owned here (not just passed straight through) so it survives the chat
   // panel unmounting on close — otherwise the first message a student ever
@@ -145,8 +113,25 @@ export function ReaderView({
     return { byBlockIndex, total: count };
   }, [blocks]);
 
-  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  // Full source text behind every annotatable id, so a merged highlight can
+  // re-slice its own (now longer) range instead of being stuck with just the
+  // text of whichever selection happened to be made last.
+  const paragraphTextById = useMemo(() => {
+    const map = new Map<string, string>();
+    blocks.forEach((block, blockIndex) => {
+      if (block.type === "page") {
+        block.textBlocks.forEach((tb) => map.set(`pg${blockIndex}-${tb.id}`, tb.text));
+      }
+    });
+    paragraphMeta.byBlockIndex.forEach((meta) => map.set(meta.id, meta.text));
+    return map;
+  }, [blocks, paragraphMeta]);
+
+  const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
   const [pending, setPending] = useState<PendingSelection | null>(null);
+  // The floating toolbar renders right under the pointer, so showing it
+  // mid-drag makes it jitter along with the selection; it waits for mouseup.
+  const [draggingPage, setDraggingPage] = useState(false);
   const [mobileAnchor, setMobileAnchor] = useState<{
     paragraphId: string;
     start: number;
@@ -418,9 +403,17 @@ export function ReaderView({
   ) {
     const el = e.currentTarget;
     const hit = computeHit(el, e.clientX, e.clientY, textBlocks);
-    if (!hit) return;
+    // Pressing on blank space — a margin, a figure, the empty tail of a page
+    // — dismisses whatever was selected instead of grabbing the nearest word
+    // from across the page and popping a toolbar over nothing.
+    if (!hit) {
+      setPending(null);
+      setMobileAnchor(null);
+      return;
+    }
     const anchorWord = { start: hit.start, end: hit.end };
     pageDragRef.current = { blockIndex, tb: hit.tb, anchorWord };
+    setDraggingPage(true);
     setPendingFromWords(blockIndex, hit.tb, anchorWord, anchorWord, e.clientX, e.clientY);
 
     function onMove(ev: MouseEvent) {
@@ -433,6 +426,7 @@ export function ReaderView({
     }
     function onUp() {
       pageDragRef.current = null;
+      setDraggingPage(false);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     }
@@ -447,7 +441,13 @@ export function ReaderView({
     textBlocks: PageTextBlock[]
   ) {
     const hit = computeHit(e.currentTarget, e.clientX, e.clientY, textBlocks);
-    if (!hit) return;
+    // Tapping blank space dismisses the current selection, so there's an
+    // obvious way out of one without having to hit the small × in the bar.
+    if (!hit) {
+      setPending(null);
+      setMobileAnchor(null);
+      return;
+    }
     const sentence = tokenizeSentences(hit.tb.text).find(
       (s) => hit.start >= s.start && hit.start <= s.end
     );
@@ -455,24 +455,63 @@ export function ReaderView({
     handleSentenceTap(`pg${blockIndex}-${hit.tb.id}`, hit.tb.text, sentence.start, sentence.end);
   }
 
+  // Annotations live in the `annotations` table, keyed by user + content, so
+  // they survive a reload. Writes are fire-and-forget behind the optimistic
+  // state update — a marking never blocks the reader on a round trip.
+  async function persistAnnotation(annotation: Annotation, replacedIds: string[]) {
+    if (!contentId) return;
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+    if (replacedIds.length > 0) {
+      await supabase.from("annotations").delete().in("id", replacedIds);
+    }
+    await supabase.from("annotations").insert({
+      id: annotation.id,
+      user_id: session.user.id,
+      content_id: contentId,
+      paragraph_id: annotation.paragraphId,
+      start_offset: annotation.start,
+      end_offset: annotation.end,
+      text: annotation.text,
+      note: annotation.note ?? null,
+    });
+  }
+
   function commitAnnotation(note?: string) {
     if (!pending) return;
-    setAnnotations((prev) => {
-      const filtered = prev.filter(
-        (a) => !(a.paragraphId === pending.paragraphId && rangesOverlap(a, pending))
-      );
-      return [
-        ...filtered,
-        {
-          id: crypto.randomUUID(),
-          paragraphId: pending.paragraphId,
-          start: pending.start,
-          end: pending.end,
-          text: pending.text,
-          note,
-        },
-      ];
-    });
+
+    // A new marking that touches existing ones grows to cover them all and
+    // keeps every note involved, rather than silently dropping the
+    // overlapped annotations (notes and all) the way a plain replace did.
+    const overlapping = annotations.filter(
+      (a) => a.paragraphId === pending.paragraphId && rangesOverlap(a, pending)
+    );
+    const start = Math.min(pending.start, ...overlapping.map((a) => a.start));
+    const end = Math.max(pending.end, ...overlapping.map((a) => a.end));
+    const notes = [...overlapping.map((a) => a.note), note].filter(
+      (n): n is string => Boolean(n)
+    );
+    const source = paragraphTextById.get(pending.paragraphId);
+
+    const merged: Annotation = {
+      id: crypto.randomUUID(),
+      paragraphId: pending.paragraphId,
+      start,
+      end,
+      text: source ? source.slice(start, end).trim() : pending.text,
+      note: notes.length > 0 ? Array.from(new Set(notes)).join("\n") : undefined,
+    };
+    const replacedIds = overlapping.map((a) => a.id);
+
+    setAnnotations((prev) => [
+      ...prev.filter((a) => !replacedIds.includes(a.id)),
+      merged,
+    ]);
+    void persistAnnotation(merged, replacedIds);
+
     window.getSelection()?.removeAllRanges();
     setPending(null);
     setMobileAnchor(null);
@@ -501,6 +540,13 @@ export function ReaderView({
 
   function deleteAnnotation(id: string) {
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    if (!contentId) return;
+    // A Supabase query builder only fires once something awaits it —
+    // `void`-ing the builder on its own would never send the request, and
+    // the annotation would come back on the next reload.
+    void (async () => {
+      await createClient().from("annotations").delete().eq("id", id);
+    })();
   }
 
   return (
@@ -833,7 +879,7 @@ export function ReaderView({
         )}
       </div>
 
-      {pending && (
+      {pending && !draggingPage && (
         <SelectionToolbar
           selection={pending}
           toolbarRef={toolbarRef}

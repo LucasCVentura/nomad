@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/reader/reader-view";
 import { createClient } from "@/lib/supabase/server";
 import type { ContentBlock } from "@/lib/supabase/types";
+import type { Annotation } from "@/lib/annotation-utils";
 import type { ChatMessage } from "@/components/chat/chat-thread";
 
 export default async function LerPage({
@@ -31,15 +32,22 @@ export default async function LerPage({
     notFound();
   }
 
-  const [{ data: purchase }, { data: profile }] = await Promise.all([
-    supabase
-      .from("purchases")
-      .select("id, completed_at")
-      .eq("user_id", session.user.id)
-      .eq("content_id", row.id)
-      .maybeSingle(),
-    supabase.from("profiles").select("is_admin").eq("id", session.user.id).single(),
-  ]);
+  const [{ data: purchase }, { data: profile }, { data: annotationRows }] =
+    await Promise.all([
+      supabase
+        .from("purchases")
+        .select("id, completed_at")
+        .eq("user_id", session.user.id)
+        .eq("content_id", row.id)
+        .maybeSingle(),
+      supabase.from("profiles").select("is_admin").eq("id", session.user.id).single(),
+      supabase
+        .from("annotations")
+        .select("id, paragraph_id, start_offset, end_offset, text, note")
+        .eq("user_id", session.user.id)
+        .eq("content_id", row.id)
+        .order("created_at", { ascending: true }),
+    ]);
 
   // The admin can always open any content to see it exactly as a student
   // would — otherwise she'd never be able to preview what she just
@@ -105,6 +113,15 @@ export default async function LerPage({
     };
   }
 
+  const initialAnnotations: Annotation[] = (annotationRows ?? []).map((a) => ({
+    id: a.id,
+    paragraphId: a.paragraph_id,
+    start: a.start_offset,
+    end: a.end_offset,
+    text: a.text,
+    note: a.note ?? undefined,
+  }));
+
   return (
     <ReaderView
       content={{ title: row.title, category: row.category }}
@@ -113,6 +130,7 @@ export default async function LerPage({
       backHref={backHref}
       chat={chat}
       initialCompleted={Boolean(purchase?.completed_at)}
+      initialAnnotations={initialAnnotations}
     />
   );
 }
