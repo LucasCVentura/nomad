@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getAdminUnreadTotal } from "@/lib/conversations";
 
 export function useAdminUnreadTotal(initial: number) {
   const [total, setTotal] = useState(initial);
+  // The sidebar and the mobile bottom nav can both be mounted at once (the
+  // sidebar is just CSS-hidden below `lg`, not unmounted) — each needs its
+  // own realtime channel, since Supabase errors on reusing a channel name
+  // that's already subscribed.
+  const instanceId = useId();
 
   useEffect(() => {
     const supabase = createClient();
@@ -27,7 +32,7 @@ export function useAdminUnreadTotal(initial: number) {
     supabase.auth.getSession().then(() => {
       if (cancelled) return;
       channel = supabase
-        .channel("admin-unread-total")
+        .channel(`admin-unread-total-${instanceId}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "conversation_messages" },
@@ -46,7 +51,7 @@ export function useAdminUnreadTotal(initial: number) {
       window.clearTimeout(timeout);
       if (channel) supabase.removeChannel(channel);
     };
-  }, []);
+  }, [instanceId]);
 
   return total;
 }

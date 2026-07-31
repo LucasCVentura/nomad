@@ -26,14 +26,14 @@ export default async function AdminConteudosPage() {
         </Button>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-border/60">
         {!contents || contents.length === 0 ? (
           <div className="p-10 text-center text-sm text-muted-foreground">
             Nenhum conteúdo publicado ainda. Clique em &quot;Novo
             conteúdo&quot; pra subir o primeiro PDF.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-160 text-sm">
             <thead className="border-b border-border/60 bg-card/60 text-left text-xs text-muted-foreground uppercase">
               <tr>
                 <th className="px-5 py-3 font-medium">Título</th>

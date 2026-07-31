@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdminUnreadTotal } from "@/lib/conversations";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { AdminTopbar } from "@/components/admin-topbar";
+import { AdminBottomNav } from "@/components/admin-bottom-nav";
 
 export default async function AdminLayout({
   children,
@@ -43,10 +44,11 @@ export default async function AdminLayout({
   return (
     <div className="flex flex-1">
       <AdminSidebar unreadCount={unreadCount} />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <AdminTopbar />
-        <main className="flex-1 px-6 py-8">{children}</main>
+        <main className="min-w-0 flex-1 px-6 py-8 pb-24 lg:pb-8">{children}</main>
       </div>
+      <AdminBottomNav unreadCount={unreadCount} />
     </div>
   );
 }
