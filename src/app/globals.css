@@ -145,6 +145,39 @@
   }
 }
 
+/* Skeleton placeholders: a slow light sweep across blocks laid out in the
+   shape of whatever is loading. Beats a spinner on two counts — there's
+   something to look at that reads as "the page, arriving", and the layout
+   doesn't jump once the real content lands on top of it. */
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: color-mix(in oklch, var(--muted) 92%, var(--foreground));
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--foreground) 9%, transparent),
+    transparent
+  );
+  animation: skeleton-sweep 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
 /* Film-grain texture: gives the flat dark background tactile depth */
 body {
   position: relative;
