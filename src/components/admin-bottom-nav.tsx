@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileStack, Users, MessageCircle } from "lucide-react";
+import { LayoutDashboard, FileStack, Users, MessageCircle, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminUnreadTotal } from "@/lib/use-admin-unread-total";
 
@@ -11,6 +11,7 @@ const items = [
   { href: "/admin/conteudos", label: "Conteúdos", icon: FileStack },
   { href: "/admin/alunos", label: "Alunas", icon: Users },
   { href: "/admin/comunidade", label: "Chat", icon: MessageCircle },
+  { href: "/admin/avaliacoes", label: "Notas", icon: Star },
 ];
 
 // Mobile-only primary navigation, mirroring AdminSidebar — before this the

@@ -19,6 +19,7 @@ const TITLES: Record<string, string> = {
   "/admin/conteudos": "Conteúdos",
   "/admin/alunos": "Alunas",
   "/admin/comunidade": "Chat",
+  "/admin/avaliacoes": "Avaliações",
 };
 
 export function AdminTopbar() {

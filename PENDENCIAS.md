@@ -3,10 +3,10 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
-> **Status (31/07/2026):** os dois itens críticos e o item 3 foram tratados —
-> o conteúdo pago não é mais acessível sem compra, nem pela API nem pelo
-> storage, e a linha do curso caiu de 7,74 MB para 214 KB. Continua aberta a
-> metade 2b, que só pode ser fechada junto com o pagamento.
+> **Status (31/07/2026):** itens 1, 2a, 3 e 4 resolvidos — o conteúdo pago não
+> é mais acessível sem compra (nem pela API nem pelo storage), a linha do curso
+> caiu de 7,74 MB para 214 KB, e as avaliações das alunas agora têm tela.
+> Continua aberta a metade 2b, que depende do pagamento, e os itens menores.
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -192,7 +192,21 @@ páginas são buscadas de uma vez.
 
 ### 4. As avaliações das alunas não aparecem em lugar nenhum
 
-- [ ] Criar a tela no admin
+- [x] ~~Criar a tela no admin~~ — **resolvido em 31/07/2026**
+
+> Nova tela em `/admin/avaliacoes` (`src/app/admin/avaliacoes/page.tsx`), com
+> entrada na sidebar do desktop ("Avaliações") e na barra inferior do celular
+> ("Notas", 5ª aba). Mostra a nota média geral com a contagem, uma quebra por
+> conteúdo — que só aparece com dois ou mais cursos avaliados, senão repetiria
+> a média geral — e a lista de comentários com aluna, curso e data.
+>
+> Já havia uma avaliação guardada e invisível no banco desde 30/07 (5
+> estrelas, "Muito bom!"), que agora aparece.
+>
+> **Verificado:** nota, comentário e nome da aluna na tela; título do topo
+> correto; no celular as 5 abas cabem sem estouro horizontal (390px); estado
+> vazio conferido zerando a avaliação temporariamente e restaurando em
+> seguida.
 
 **Situação:** ao concluir um curso, a aluna avalia de 1 a 5 estrelas e pode
 escrever um comentário. Isso é salvo em `purchases.rating` / `purchases.review`
