@@ -138,6 +138,10 @@
   }
   html {
     @apply font-sans;
+    /* Kills the gray flash-on-tap Android/Chrome draws by default and the
+       page-wide rubber-band bounce on iOS — both read as "website", not app. */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
 }
 

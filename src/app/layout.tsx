@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Roboto } from "next/font/google";
 import { CartProvider } from "@/lib/cart-context";
 import { CartDrawer } from "@/components/cart-drawer";
@@ -19,6 +19,21 @@ export const metadata: Metadata = {
   title: "Manual NF — Estética & Conhecimento",
   description:
     "Materiais de estudo em estética profissional escritos pela Dra. Nathalia, com chat direto pra tirar dúvidas.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Manual NF",
+  },
+};
+
+// viewport-fit=cover is what actually makes env(safe-area-inset-*) resolve
+// to non-zero values — without it the bottom tab bar's safe-area padding is
+// a no-op and content can sit under the home-indicator on notched phones.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1a1210",
 };
 
 export default function RootLayout({
