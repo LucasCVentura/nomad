@@ -105,6 +105,14 @@ update do anon:                   (nenhum)
 #### 2b. Criar a própria compra pela API
 
 - [ ] **Só pode ser fechado junto com a entrada do pagamento**
+- ⏳ **Bloqueado:** aguardando a liberação da conta no Asaas (31/07/2026).
+
+> ⚠️ **Enquanto isso, não publicar com o carrinho ativo.** O furo maior aqui
+> não é a policy, é o próprio botão de finalizar compra: ele libera o curso
+> sem cobrar nada, pela tela, sem precisar de API nenhuma. Enquanto o
+> pagamento não entra, ou o app fica fora do ar, ou sobe com o checkout
+> desligado — a loja como vitrine e a Dra. liberando pelo painel, que já
+> existe (`src/components/admin/student-access-list.tsx`).
 
 **Causa:** a policy de insert em `purchases` é
 `with check (auth.uid() = user_id or public.is_admin())` — o próprio usuário
