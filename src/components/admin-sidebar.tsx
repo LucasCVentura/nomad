@@ -11,7 +11,7 @@ const items = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/conteudos", label: "Conteúdos", icon: FileStack },
   { href: "/admin/alunos", label: "Alunos", icon: Users },
-  { href: "/admin/comunidade", label: "Comunidade", icon: MessageCircle },
+  { href: "/admin/comunidade", label: "Chat", icon: MessageCircle },
 ];
 
 export function AdminSidebar({ unreadCount = 0 }: { unreadCount?: number }) {
