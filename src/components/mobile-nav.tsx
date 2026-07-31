@@ -20,7 +20,7 @@ const links = [
   { href: "/#duvidas", label: "Dúvidas" },
 ];
 
-export function MobileNav() {
+export function MobileNav({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   return (
     <Sheet>
       <SheetTrigger
@@ -48,20 +48,32 @@ export function MobileNav() {
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-2 p-4">
-          <SheetClose
-            render={<Link href="/entrar" />}
-            nativeButton={false}
-            className="flex h-9 items-center justify-center rounded-lg border border-border text-sm text-foreground"
-          >
-            Entrar
-          </SheetClose>
-          <SheetClose
-            render={<Link href="/registro" />}
-            nativeButton={false}
-            className="flex h-9 items-center justify-center rounded-lg bg-rose text-sm text-rose-foreground"
-          >
-            Criar conta
-          </SheetClose>
+          {isLoggedIn ? (
+            <SheetClose
+              render={<Link href="/app" />}
+              nativeButton={false}
+              className="flex h-9 items-center justify-center rounded-lg bg-rose text-sm text-rose-foreground"
+            >
+              Ir para o painel
+            </SheetClose>
+          ) : (
+            <>
+              <SheetClose
+                render={<Link href="/entrar" />}
+                nativeButton={false}
+                className="flex h-9 items-center justify-center rounded-lg border border-border text-sm text-foreground"
+              >
+                Entrar
+              </SheetClose>
+              <SheetClose
+                render={<Link href="/registro" />}
+                nativeButton={false}
+                className="flex h-9 items-center justify-center rounded-lg bg-rose text-sm text-rose-foreground"
+              >
+                Criar conta
+              </SheetClose>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>
