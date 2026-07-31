@@ -17,8 +17,8 @@ export function Logomark({ className }: { className?: string }) {
         strokeLinejoin="round"
       />
       <path d="M26 13v11.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M26 13.2h5.2" className="stroke-rose" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M26 18.7h3.4" className="stroke-rose" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M26 13.2h7.4" className="stroke-rose" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M26 18.7h5.2" className="stroke-rose" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -28,7 +28,7 @@ export function Logo({ className }: { className?: string }) {
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <Logomark className="text-gold" />
       <span className="font-heading text-xl tracking-tight text-foreground">
-        Manual NF<span className="text-rose">.</span>
+        Manual NF
       </span>
     </span>
   );

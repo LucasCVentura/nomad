@@ -125,7 +125,6 @@ export default async function Home() {
           />
           <div className="mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
-              <Kicker>Feito para profissionais da estética</Kicker>
               <h1 className="font-heading text-5xl leading-[1.05] text-foreground sm:text-6xl lg:text-[4.25rem]">
                 Estude estética
                 <br />
@@ -148,9 +147,11 @@ export default async function Home() {
                 </span>
               </h1>
               <p className="mt-7 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Os materiais de estudo, o leitor com anotações e o contato
-                direto com a <span className="text-foreground">Dra. Nathalia</span> —
-                tudo em um só lugar, feito pra quem vive de estética.
+                Todo o suporte que você precisa para evoluir na estética:
+                materiais de estudo, leitor com anotações e contato direto
+                com a{" "}
+                <span className="text-foreground">Dra. Nathalia Fialho</span>,
+                reunidos em um único lugar.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button
