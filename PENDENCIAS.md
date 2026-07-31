@@ -4,8 +4,10 @@ Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
 > **Status (31/07/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6, 8 e 9.
-> Continuam abertos apenas **2b** (depende da liberação do Asaas) e **7**
-> (recuperação de senha — aguardando o domínio para ter um e-mail próprio).
+> Só resta o item **7** (recuperação de senha), aguardando o domínio para ter
+> um e-mail próprio. O pagamento entrou em 31/07/2026 e o acesso agora só sai
+> mediante cobrança confirmada — ainda em **sandbox**; ver "Virar para
+> produção" no fim do arquivo.
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -104,15 +106,18 @@ update do anon:                   (nenhum)
 
 #### 2b. Criar a própria compra pela API
 
-- [ ] **Só pode ser fechado junto com a entrada do pagamento**
-- ⏳ **Bloqueado:** aguardando a liberação da conta no Asaas (31/07/2026).
+- [x] ~~**Só pode ser fechado junto com a entrada do pagamento**~~ — **resolvido em 31/07/2026**
 
-> ⚠️ **Enquanto isso, não publicar com o carrinho ativo.** O furo maior aqui
-> não é a policy, é o próprio botão de finalizar compra: ele libera o curso
-> sem cobrar nada, pela tela, sem precisar de API nenhuma. Enquanto o
-> pagamento não entra, ou o app fica fora do ar, ou sobe com o checkout
-> desligado — a loja como vitrine e a Dra. liberando pelo painel, que já
-> existe (`src/components/admin/student-access-list.tsx`).
+> Fechado junto com a integração do Asaas
+> (`supabase/patches/2026-07-31-pagamento-obrigatorio.sql`). A aluna não
+> insere mais em `purchases`: quem libera é o webhook, com a service role, e
+> a Dra. liberando na mão pelo painel (`is_admin`).
+>
+> **Verificado em produção, depois da mudança:**
+> - aluna tentando se dar acesso pela API → bloqueado pela RLS;
+> - Dra. liberando pelo painel → continua funcionando;
+> - compra completa (carrinho → Asaas → pagamento → webhook) → acesso
+>   liberado em ~3 s, sem ninguém tocar no webhook manualmente.
 
 **Causa:** a policy de insert em `purchases` é
 `with check (auth.uid() = user_id or public.is_admin())` — o próprio usuário
@@ -340,3 +345,32 @@ reverter o estado local e avisar quando a gravação falhar.
   corrigido (larguras vindas do `item.width` do pdf.js). Qualquer material
   convertido antes disso precisa de "Reconverter PDF original" para o grifo
   pegar o fim das linhas.
+
+
+---
+
+## Virar o pagamento para produção
+
+O fluxo está validado ponta a ponta, mas apontando para o **sandbox** do
+Asaas. Para começar a cobrar de verdade, três passos — nenhum mexe em código:
+
+1. **Chave de produção**: no painel real do Asaas (a conta da Dra.), menu do
+   usuário → Integrações → gerar chave. Trocar `ASAAS_API_KEY` na Vercel.
+   Cola o valor **como veio**, começando com `$` e sem barra invertida — a
+   barra é só no `.env.local` da máquina, por causa da expansão de variáveis
+   que o Next faz nos arquivos `.env`.
+2. **`ASAAS_ENV=production`** na Vercel. É o que troca a URL da API; sem
+   isso a chave de produção seria enviada para o sandbox e recusada.
+3. **Webhook no painel de produção**, com os mesmos dados do sandbox:
+   `https://nomad-navy.vercel.app/api/webhooks/asaas`, v3, não sequencial,
+   fila de sincronização **ativada**, e o mesmo `ASAAS_WEBHOOK_TOKEN`.
+   Eventos: `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, e os de cancelamento/
+   estorno (`PAYMENT_DELETED`, `PAYMENT_REFUNDED`,
+   `PAYMENT_CHARGEBACK_REQUESTED`).
+
+Depois disso, redeploy — variável nova só vale em build novo.
+
+**Se um dia alguém pagar e o acesso não sair**, o primeiro lugar a olhar é a
+fila do webhook no painel do Asaas: depois de 15 falhas seguidas ela pausa
+sozinha e fica esperando reativação manual. Os eventos não se perdem, são
+reenviados em ordem quando a fila volta.

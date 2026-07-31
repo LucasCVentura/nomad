@@ -166,9 +166,12 @@ create policy "Users see own purchases, admin sees all"
   on public.purchases for select
   using (auth.uid() = user_id or public.is_admin());
 
-create policy "Users can create own purchases, admin can grant any"
+-- Só a admin insere direto (liberando na mão pelo painel de alunas). A compra
+-- normal entra pelo webhook do Asaas, com a service role — se a aluna pudesse
+-- criar a própria compra, bastaria um POST para pular o pagamento.
+create policy "Only admin can grant a purchase"
   on public.purchases for insert
-  with check (auth.uid() = user_id or public.is_admin());
+  with check (public.is_admin());
 
 create policy "Only admin can revoke a purchase"
   on public.purchases for delete
