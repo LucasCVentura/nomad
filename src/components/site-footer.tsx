@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Logo } from "@/components/logo";
-import { KIRACLINIC_URL } from "@/lib/constants";
+import { KIRACLINIC_HOME_URL } from "@/lib/constants";
 
 export function SiteFooter() {
   return (
@@ -14,7 +14,7 @@ export function SiteFooter() {
             profissionais de estética.
           </p>
           <a
-            href={KIRACLINIC_URL}
+            href={KIRACLINIC_HOME_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
