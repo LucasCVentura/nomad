@@ -103,10 +103,12 @@ function Kicker({ children }: { children: React.ReactNode }) {
 export default async function Home() {
   const supabase = await createClient();
 
+  // store_contents, not contents: the storefront only ever needs the fields
+  // that sell a course, and the table itself now hands out `body` — the
+  // course — solely to whoever bought it.
   const { data: contents } = await supabase
-    .from("contents")
+    .from("store_contents")
     .select("slug, title, category, format, pages, price, cover_image_url")
-    .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(6);
 

@@ -28,7 +28,19 @@ export default async function LerPage({
     redirect(`/entrar?next=/app/ler/${slug}`);
   }
 
+  // RLS only returns the row to someone who bought it (or the admin), so an
+  // empty result means either "doesn't exist" or "not hers" — and those want
+  // different answers. If it's on the storefront, she's simply looking at
+  // something she hasn't bought: send her to the store, not to a 404.
   if (!row) {
+    const { data: onSale } = await supabase
+      .from("store_contents")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (onSale) {
+      redirect("/app/loja");
+    }
     notFound();
   }
 

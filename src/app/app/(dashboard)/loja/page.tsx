@@ -15,9 +15,8 @@ export default async function AppLojaPage() {
 
   const [{ data: contents }, { data: purchases }] = await Promise.all([
     supabase
-      .from("contents")
+      .from("store_contents")
       .select("id, slug, title, category, format, pages, price, description, cover_image_url")
-      .eq("status", "published")
       .order("created_at", { ascending: false }),
     supabase.from("purchases").select("content_id").eq("user_id", session.user.id),
   ]);

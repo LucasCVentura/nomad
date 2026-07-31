@@ -286,6 +286,21 @@ export type Database = {
         }
         Relationships: []
       }
+      store_contents: {
+        Row: {
+          id: string
+          slug: string
+          title: string
+          category: string
+          format: string
+          pages: number | null
+          price: number
+          description: string | null
+          cover_image_url: string | null
+          created_at: string
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_content_access: { Args: { cid: string }; Returns: boolean }

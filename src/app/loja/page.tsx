@@ -21,9 +21,8 @@ export default async function LojaPage() {
   }
 
   const { data: contents } = await supabase
-    .from("contents")
+    .from("store_contents")
     .select("id, slug, title, category, format, pages, price, description, cover_image_url")
-    .eq("status", "published")
     .order("created_at", { ascending: false });
 
   const items: LojaItem[] = (contents ?? []).map((item) => ({

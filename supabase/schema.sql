@@ -82,9 +82,23 @@ create index if not exists contents_status_idx on public.contents (status);
 
 alter table public.contents enable row level security;
 
-create policy "Published contents are public"
+-- `body` is the product itself (the page images and the text of the course),
+-- and RLS is row-level: a policy that let anyone read a published row handed
+-- the whole course to anyone holding the anon key, no account needed. So the
+-- table is readable only by whoever bought it (or the admin), and the
+-- storefront reads `store_contents` below instead — same split already used
+-- for platform_stats/public_reviews.
+create policy "Buyers and admin can read a content"
   on public.contents for select
-  using (status = 'published' or public.is_admin());
+  using (
+    public.is_admin()
+    or exists (
+      select 1
+      from public.purchases p
+      where p.content_id = contents.id
+        and p.user_id = auth.uid()
+    )
+  );
 
 create policy "Only admin can insert contents"
   on public.contents for insert
@@ -97,6 +111,28 @@ create policy "Only admin can update contents"
 create policy "Only admin can delete contents"
   on public.contents for delete
   using (public.is_admin());
+
+-- Storefront metadata: everything the landing page and the store need to sell
+-- a content, and nothing of the content itself. Runs with the owner's
+-- privileges (security_invoker = false), so it sees past the table's RLS
+-- while exposing only the columns listed here — `body` is not one of them.
+create or replace view public.store_contents
+with (security_invoker = false) as
+select
+  id,
+  slug,
+  title,
+  category,
+  format,
+  pages,
+  price,
+  description,
+  cover_image_url,
+  created_at
+from public.contents
+where status = 'published';
+
+grant select on public.store_contents to anon, authenticated;
 
 -- Purchases -----------------------------------------------------------------
 create table if not exists public.purchases (
@@ -138,6 +174,14 @@ create policy "Users can update own purchase progress"
   on public.purchases for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- The policy above only scopes the *row*, so on its own it also let a student
+-- rewrite any column of her own purchase — including content_id, swapping the
+-- cheap content she paid for for an expensive one. Column grants are what
+-- narrow it down to the fields she legitimately moves.
+revoke update on public.purchases from anon, authenticated;
+grant update (progress, completed_at, updated_seen_at, rating, review)
+  on public.purchases to authenticated;
 
 -- Two narrow, read-only views so the public landing page can show real
 -- numbers/testimonials without opening up RLS on `purchases` itself (which
