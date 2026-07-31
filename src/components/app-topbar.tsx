@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CartButton } from "@/components/cart-button";
@@ -23,7 +22,14 @@ function getInitials(name: string) {
   return initials.toUpperCase();
 }
 
+const TITLES: Record<string, string> = {
+  "/app": "Meus conteúdos",
+  "/app/loja": "Loja",
+  "/app/conta": "Minha conta",
+};
+
 export function AppTopbar() {
+  const pathname = usePathname();
   const router = useRouter();
   const [label, setLabel] = useState("");
 
@@ -43,23 +49,15 @@ export function AppTopbar() {
     router.refresh();
   }
 
+  const title = TITLES[pathname] ?? "Meus conteúdos";
+
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/60 px-6">
-      <div className="flex items-center gap-5">
-        <p className="font-heading text-lg text-foreground">Meus conteúdos</p>
-        <nav className="flex items-center gap-4 text-sm text-muted-foreground lg:hidden">
-          <Link href="/app" className="hover:text-foreground">
-            Conteúdos
-          </Link>
-          <Link href="/app/loja" className="hover:text-foreground">
-            Loja
-          </Link>
-        </nav>
-      </div>
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/60 px-4 sm:px-6">
+      <p className="font-heading text-lg text-foreground">{title}</p>
       <div className="flex items-center gap-2">
         <CartButton />
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger className="hidden lg:flex">
             <Avatar className="size-8">
               <AvatarFallback className="bg-rose/15 text-xs text-rose">
                 {label}
