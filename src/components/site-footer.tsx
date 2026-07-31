@@ -10,8 +10,7 @@ export function SiteFooter() {
         <div>
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-            Materiais de estudo e atendimento direto com a Dra. Nathalia pra
-            profissionais de estética.
+            Materiais de estudo e atendimento direto com a Dra. Nathalia.
           </p>
           <a
             href={KIRACLINIC_HOME_URL}

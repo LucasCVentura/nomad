@@ -218,41 +218,22 @@ export default async function Home() {
               <div className="flex aspect-square w-full items-center justify-center rounded-3xl border border-border/60 bg-linear-to-br from-rose/15 to-gold/15">
                 <User className="size-16 text-gold/70" />
               </div>
-              <div className="absolute -bottom-5 -right-5 rotate-3 rounded-xl border border-border/60 bg-popover px-4 py-3 shadow-xl">
-                <p className="font-heading text-sm text-foreground">10+ anos</p>
-                <p className="text-[11px] text-muted-foreground">de atuação clínica</p>
-              </div>
             </div>
             <div>
               <Kicker>Quem ensina</Kicker>
               <h2 className="font-heading text-3xl text-foreground sm:text-4xl">
-                Dra. Nathalia
+                Dra. Nathalia Fialho
               </h2>
               <p className="mt-2 text-xs font-medium tracking-[0.15em] text-gold uppercase">
-                Especialista em Harmonização Facial e Skincare
+                Biomédica especialista em rejuvenescimento e gerenciamento de pele
               </p>
               <p className="mt-5 max-w-lg leading-relaxed text-muted-foreground">
                 O Manual NF não é uma loja aberta pra qualquer criador de
-                conteúdo — todo material é escrito e revisado pela própria
-                Dra. Nathalia, com base na prática real de clínica. Quando
-                você compra um conteúdo aqui, tá aprendendo direto com
-                quem atende.
+                conteúdo, todo material é escrito e revisado pela própria
+                Dra., com base na prática real de clínica. Quando você
+                compra um conteúdo aqui, tá aprendendo direto com quem
+                entende.
               </p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  "Formação em Estética e Cosmetologia",
-                  "Especialização em Harmonização Facial",
-                  "Mais de 10 anos atendendo e ensinando",
-                ].map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-3 text-sm text-foreground"
-                  >
-                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-rose" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         </section>

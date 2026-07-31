@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Manual NF — Estética & Conhecimento",
+  title: "Manual NF — Estética & Beleza",
   description:
     "Materiais de estudo em estética profissional escritos pela Dra. Nathalia, com chat direto pra tirar dúvidas.",
   appleWebApp: {
