@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, ExternalLink, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { PendingOrdersRefresher } from "@/components/pending-orders-refresher";
 
 // Pix cai em segundos, boleto pode levar dias — então esta tela não promete
 // nada que ainda não aconteceu. Enquanto o webhook não confirma, o pedido
@@ -56,8 +57,11 @@ export default async function PedidosPage() {
 
   const rows = orders ?? [];
 
+  const hasPending = rows.some((order) => order.status === "pending");
+
   return (
     <div className="mx-auto w-full max-w-3xl">
+      <PendingOrdersRefresher enabled={hasPending} />
       <p className="text-sm text-muted-foreground">
         {rows.length === 0
           ? "Você ainda não fez nenhum pedido."

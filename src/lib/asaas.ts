@@ -74,22 +74,48 @@ export type AsaasPayment = {
   invoiceUrl: string;
 };
 
-export function createPayment(input: {
+export async function createPayment(input: {
   customer: string;
   value: number;
   dueDate: string;
   description?: string;
   externalReference?: string;
+  // Para onde devolver a aluna depois que ela paga. Sem isso ela termina o
+  // pagamento e fica parada na tela do Asaas, sem caminho de volta.
+  successUrl?: string;
 }) {
-  return request<AsaasPayment>("/payments", {
-    method: "POST",
-    body: {
-      ...input,
-      // Deixa a aluna escolher Pix, boleto ou cartão na própria página do
-      // Asaas, em vez de decidirmos por ela antes de saber o que ela prefere.
-      billingType: "UNDEFINED",
-    },
-  });
+  const { successUrl, ...payment } = input;
+  const body = {
+    ...payment,
+    // Deixa a aluna escolher Pix, boleto ou cartão na própria página do
+    // Asaas, em vez de decidirmos por ela antes de saber o que ela prefere.
+    billingType: "UNDEFINED",
+  };
+
+  if (!successUrl) {
+    return request<AsaasPayment>("/payments", { method: "POST", body });
+  }
+
+  try {
+    return await request<AsaasPayment>("/payments", {
+      method: "POST",
+      body: { ...body, callback: { successUrl, autoRedirect: true } },
+    });
+  } catch (err) {
+    // O Asaas só aceita a URL de retorno se houver um site cadastrado na
+    // conta (Minha Conta → Informações). Sem ele a cobrança inteira é
+    // recusada — e perder a venda por causa do redirecionamento seria um
+    // péssimo negócio. Cobra sem ele e deixa o motivo registrado.
+    if (err instanceof AsaasError && err.status === 400) {
+      console.error(
+        "[asaas] cobrança recusada com callback, refazendo sem redirecionamento. " +
+          "Cadastre o site em Minha Conta → Informações para a aluna voltar " +
+          `automaticamente depois de pagar. Motivo: ${err.message}`
+      );
+      return request<AsaasPayment>("/payments", { method: "POST", body });
+    }
+    throw err;
+  }
 }
 
 export function getPayment(id: string) {

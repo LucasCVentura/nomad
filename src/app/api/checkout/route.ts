@@ -147,6 +147,10 @@ export async function POST(request: Request) {
           ? items[0].title
           : `${items.length} conteúdos — Manual NF`,
       externalReference: order.id,
+      // Volta para os pedidos, não para a área de estudos: o webhook costuma
+      // chegar em segundos, mas boleto pode levar dias, e essa é a tela que
+      // sabe dizer "aguardando" sem prometer o que ainda não aconteceu.
+      successUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin}/app/pedidos`,
     });
 
     await admin
