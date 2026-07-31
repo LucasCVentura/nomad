@@ -1,0 +1,220 @@
+# Pendências técnicas — Manual NF
+
+Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
+e anotações persistentes.
+
+Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
+Ordenado por urgência, não por esforço.
+
+---
+
+## 🔴 Crítico
+
+### 1. O conteúdo pago é baixável por qualquer pessoa, sem conta
+
+- [ ] **Corrigir antes de divulgar a plataforma**
+
+**Constatado:** consultando a API do Supabase sem nenhum login, usando apenas
+a chave anônima (que fica no bundle do navegador de todo visitante), retorna:
+
+```
+"Do Zero à Pratica Clinica" (R$ 50)
+  páginas baixadas: 18
+  MB de imagem:     7.74
+  texto integral:   10.932 caracteres
+```
+
+O curso inteiro — todas as páginas em imagem e o texto completo — sai sem
+compra e sem cadastro.
+
+**Causa:** RLS no Postgres é por *linha*, não por *coluna*. A policy
+`"Published contents are public"` (`supabase/schema.sql`) libera a linha
+inteira de `contents` para qualquer um, e o `body` — que é o produto — está
+nessa linha. A policy existe por um motivo legítimo (a loja precisa de
+título, preço, capa), mas leva o conteúdo junto.
+
+**Correção:** separar vitrine de produto, usando o mesmo padrão de view que o
+schema já aplica em `public_reviews` / `platform_stats`:
+
+```sql
+-- Vitrine: só os campos de marketing, sem body.
+create view public.store_contents with (security_invoker = false) as
+  select id, slug, title, category, format, pages, price, description,
+         cover_image_url, created_at
+  from public.contents
+  where status = 'published';
+
+grant select on public.store_contents to anon, authenticated;
+
+-- contents passa a exigir compra (ou admin).
+drop policy "Published contents are public" on public.contents;
+
+create policy "Quem comprou (ou a admin) lê o conteúdo"
+  on public.contents for select
+  using (
+    public.is_admin()
+    or exists (
+      select 1 from public.purchases p
+      where p.content_id = contents.id and p.user_id = auth.uid()
+    )
+  );
+```
+
+**Telas que passam a ler `store_contents`:** `src/app/page.tsx`,
+`src/app/loja/page.tsx`, `src/app/app/(dashboard)/loja/page.tsx`.
+O leitor (`src/app/app/ler/[slug]/page.tsx`) e o admin continuam em
+`contents` — já são cobertos por compra ou `is_admin()`.
+
+---
+
+### 2. Qualquer usuário logado pode se dar acesso a qualquer curso
+
+- [ ] **Tem que ser corrigido junto com a entrada do pagamento**
+
+**Causa:** a policy de insert em `purchases` é
+`with check (auth.uid() = user_id or public.is_admin())` — o próprio usuário
+cria a própria compra. Hoje isso é coerente, porque o checkout
+(`src/components/cart-drawer.tsx`) libera na hora sem cobrar nada.
+
+**Por que importa:** quando o pagamento entrar, se essa regra ficar como
+está, o gateway vira decoração — dá pra criar a compra direto pela API sem
+passar pelo checkout.
+
+**Correção:** só o webhook de pagamento (com *service role*) deve inserir em
+`purchases`. A policy de insert para o usuário comum sai.
+
+**Variação do mesmo problema:** a policy de update
+(`"Users can update own purchase progress"`) valida apenas `user_id`, então
+o usuário pode alterar qualquer coluna da própria linha — inclusive o
+`content_id`, trocando o curso barato que comprou pelo caro. Restringir às
+colunas que a aluna realmente controla (`progress`, `completed_at`,
+`rating`, `review`, `updated_seen_at`).
+
+---
+
+## 🟠 Antes de escalar
+
+### 3. 7,74 MB numa única linha do banco (imagens em base64)
+
+- [ ] Mover páginas para o storage
+
+**Constatado:** medindo a linha do conteúdo publicado — 7,74 MB de JSON, dos
+quais **97% são imagem em base64**. O texto e a geometria do grifo somam
+213 KB.
+
+**Causa:** `src/lib/pdf-convert.ts` gera cada página com
+`canvas.toDataURL("image/jpeg", 0.85)` e grava a data URL dentro do
+`contents.body`. As páginas nunca vão para o storage (capa e vídeos vão).
+
+**Impactos observados:**
+- a tela de editar conteúdo leva ~28 s para abrir localmente;
+- toda visita ao leitor transfere 7,74 MB pelo servidor, sem CDN e sem cache;
+- nada renderiza antes de tudo chegar (não há carregamento sob demanda);
+- base64 é ~33% maior que o binário equivalente;
+- um PDF de 100 páginas daria ~43 MB numa linha só.
+
+**Correção:** subir as páginas para o storage e guardar só as URLs — o JSON
+cai para ~200 KB e as imagens passam a carregar sob demanda.
+
+> ⚠️ **Tem que ser bucket privado com URL assinada.** Um bucket público
+> recriaria o vazamento do item 1 por outro caminho. Hoje `content-images` é
+> público (correto para capas, que são material de vitrine — errado para as
+> páginas do curso).
+
+Aproveitar para adicionar `loading="lazy"` nas imagens de página: hoje
+nenhuma das 9 tags `<img>` do projeto tem.
+
+---
+
+### 4. As avaliações das alunas não aparecem em lugar nenhum
+
+- [ ] Criar a tela no admin
+
+**Situação:** ao concluir um curso, a aluna avalia de 1 a 5 estrelas e pode
+escrever um comentário. Isso é salvo em `purchases.rating` / `purchases.review`
+— e não é exibido em nenhum lugar. Os depoimentos da landing (única tela que
+lia esses dados) foram removidos, e o painel admin nunca teve nada.
+
+**Por que importa:** o resumo entregue à Dra. descreve a avaliação como "uma
+forma simples de você acompanhar o que está agradando mais". Hoje essa
+promessa não se cumpre.
+
+**Correção:** uma seção no admin com nota média por conteúdo e a lista de
+comentários. As views `public_reviews` / `platform_stats` continuam no banco
+e voltam a ser úteis quando os depoimentos voltarem à landing.
+
+---
+
+### 5. Reconverter ou editar um conteúdo quebra os grifos das alunas
+
+- [ ] Decidir estratégia (avisar × re-ancorar)
+
+**Causa:** as anotações são ancoradas por `paragraph_id` + posição de
+caractere (`start_offset` / `end_offset`). Se a Dra. reconverter o PDF ou
+editar o texto, o agrupamento de parágrafos e as posições mudam, e as
+marcações passam a apontar para o trecho errado — em silêncio.
+
+**Por que virou risco agora:** até esta semana os grifos se perdiam no reload
+de qualquer jeito. Agora que são persistidos, existe dado real para quebrar.
+
+**Correção:** a anotação já guarda o texto marcado (`annotations.text`), então
+dá para re-ancorar procurando esse texto no conteúdo novo e descartar só o
+que não casar. O mínimo, e barato: incluir o aviso no `confirm()` de
+"Reconverter PDF original", que hoje fala apenas das edições manuais da Dra.
+e não menciona as anotações das alunas.
+
+---
+
+## 🟡 Menores
+
+### 6. No celular não dá para apagar uma anotação
+
+- [ ] Trocar o hover por visibilidade permanente no touch
+
+O botão "Remover" em `src/components/reader/annotations-panel.tsx` usa
+`opacity-0 ... group-hover:opacity-100`. Em telas de toque não existe hover,
+então ele fica invisível (embora continue clicável). O mesmo padrão aparece
+em `src/app/page.tsx:350`, onde é inofensivo — é só um "Ver na loja"
+decorativo sobre um card que inteiro já é link.
+
+### 7. Não existe recuperação de senha
+
+- [ ] Implementar "esqueci minha senha"
+
+Não há nenhuma tela nem chamada de `resetPasswordForEmail` no projeto. Se uma
+aluna esquecer a senha, não há saída pela interface. Já estava listado como
+pendência no resumo entregue à Dra.
+
+### 8. Nenhum limite de tamanho ou de páginas no PDF
+
+- [ ] Validar antes de converter
+
+`src/lib/pdf-convert.ts` só rejeita arquivo vazio (`file.size === 0`). Um PDF
+muito grande vai travar a conversão no navegador ou estourar no insert,
+provavelmente sem mensagem clara. Vale um teto de páginas/MB com aviso
+explícito — e ele fica bem mais folgado depois do item 3.
+
+### 9. O grifo é salvo sem verificar se deu certo
+
+- [ ] Tratar falha de gravação
+
+Em `src/components/reader/reader-view.tsx`, `persistAnnotation` e
+`deleteAnnotation` disparam a escrita sem aguardar nem tratar erro
+(intencional, para não travar a leitura). Se a rede cair, a aluna vê a
+marcação na tela e ela some no acesso seguinte, sem aviso. Vale ao menos
+reverter o estado local e avisar quando a gravação falhar.
+
+---
+
+## Notas
+
+- O middleware (`middleware.ts` + `src/lib/supabase/middleware.ts`) está
+  correto: usa `getUser()` (verificado no servidor) e só roda em `/app` e
+  `/admin`.
+- As policies de `annotations`, `conversations` e `conversation_messages`
+  estão bem escritas e escopadas.
+- Não há `console.log` esquecido no código de produção.
+- O conteúdo publicado foi reconvertido em 31/07/2026 com o conversor
+  corrigido (larguras vindas do `item.width` do pdf.js). Qualquer material
+  convertido antes disso precisa de "Reconverter PDF original" para o grifo
+  pegar o fim das linhas.
