@@ -49,15 +49,8 @@ function errMessage(err: unknown): string {
 const RENDER_SCALE = 1.5;
 
 type MeasuredItem = { text: string; x: number; y: number; width: number; height: number };
-type MeasuredLine = {
-  text: string;
-  top: number;
-  bottom: number;
-  xMin: number;
-  xMax: number;
-  height: number;
-};
-type MeasuredGroupLine = { text: string; x: number; y: number; width: number; height: number };
+type MeasuredWord = { text: string; x: number; y: number; width: number; height: number };
+type MeasuredLine = { words: MeasuredWord[]; top: number; bottom: number; height: number };
 
 // Runs the page's real text content through pdf.js's own TextLayer — the
 // exact code every PDF.js-based viewer uses to build its selectable overlay
@@ -117,9 +110,38 @@ async function measureTextItems(
   }
 }
 
-// pdf.js emits one item per text *run* (often just a few words, split
-// wherever the PDF's content stream has a kerning adjustment) — bucket runs
-// that land on the same visual line back into one line, in reading order.
+// pdf.js gives us one item per text *run* (often several words, split
+// wherever the PDF's content stream has a kerning adjustment) — an item's
+// own width is real/measured, but splitting it into individual words still
+// needs an estimate (proportional by character count). Scoping that
+// estimate to a single short run — instead of, as before, an entire
+// multi-word line — keeps the error small enough not to show, since a run
+// rarely spans more than a few words.
+function splitItemIntoWords(item: MeasuredItem): MeasuredWord[] {
+  const total = item.text.length;
+  if (total === 0) return [];
+  const parts = item.text.match(/\S+\s*/g) ?? [item.text];
+  const words: MeasuredWord[] = [];
+  let charCursor = 0;
+  for (const part of parts) {
+    const startFrac = charCursor / total;
+    charCursor += part.length;
+    const endFrac = charCursor / total;
+    words.push({
+      text: part,
+      x: item.x + startFrac * item.width,
+      y: item.y,
+      width: (endFrac - startFrac) * item.width,
+      height: item.height,
+    });
+  }
+  return words;
+}
+
+// Buckets runs landing on the same visual line together, in reading order,
+// splitting each into words along the way. A run that doesn't already end
+// in whitespace gets a synthetic trailing space on its last word so two
+// adjacent runs ("camada" + "mais") don't read as "camadamais".
 function bucketItemsIntoLines(items: MeasuredItem[]): MeasuredLine[] {
   const rows = new Map<number, MeasuredItem[]>();
   for (const item of items) {
@@ -132,17 +154,20 @@ function bucketItemsIntoLines(items: MeasuredItem[]): MeasuredLine[] {
   const lines: MeasuredLine[] = [];
   for (const entries of rows.values()) {
     entries.sort((a, b) => a.x - b.x);
-    const text = entries
-      .map((e) => e.text)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!text) continue;
+    const words: MeasuredWord[] = [];
+    entries.forEach((item, i) => {
+      const itemWords = splitItemIntoWords(item);
+      if (itemWords.length === 0) return;
+      const last = itemWords[itemWords.length - 1];
+      if (i < entries.length - 1 && !/\s$/.test(last.text)) {
+        last.text += " ";
+      }
+      words.push(...itemWords);
+    });
+    if (words.length === 0) continue;
     const top = Math.min(...entries.map((e) => e.y));
     const bottom = Math.max(...entries.map((e) => e.y + e.height));
-    const xMin = Math.min(...entries.map((e) => e.x));
-    const xMax = Math.max(...entries.map((e) => e.x + e.width));
-    lines.push({ text, top, bottom, xMin, xMax, height: bottom - top });
+    lines.push({ words, top, bottom, height: bottom - top });
   }
 
   lines.sort((a, b) => a.top - b.top);
@@ -151,9 +176,9 @@ function bucketItemsIntoLines(items: MeasuredItem[]): MeasuredLine[] {
 
 // Groups nearby lines (similar height, small vertical gap) into one
 // selectable "paragraph" — so a drag-select or highlight can span several
-// original PDF lines — while every line keeps its own exact, individually
-// measured box instead of being reflowed into one guessed bounding box.
-function groupLinesIntoParagraphs(lines: MeasuredLine[]): MeasuredGroupLine[][] {
+// original PDF lines — while every word keeps its own exact, individually
+// measured box instead of being reflowed into a guessed bounding box.
+function groupLinesIntoParagraphs(lines: MeasuredLine[]): MeasuredWord[][] {
   if (lines.length === 0) return [];
 
   type Group = { lines: MeasuredLine[] };
@@ -173,19 +198,22 @@ function groupLinesIntoParagraphs(lines: MeasuredLine[]): MeasuredGroupLine[][] 
     }
   }
 
-  return groups.map(({ lines: groupLines }) =>
-    groupLines.map((line, i) => ({
-      // A trailing space (except after the last line) keeps a word that
-      // wrapped mid-sentence from reading as one run-on word — and since
-      // it's rendered as part of the line's own text in the reader, offsets
-      // used for stored highlights/annotations stay in sync automatically.
-      text: i < groupLines.length - 1 ? `${line.text} ` : line.text,
-      x: line.xMin,
-      y: line.top,
-      width: line.xMax - line.xMin,
-      height: line.height,
-    }))
-  );
+  return groups.map(({ lines: groupLines }) => {
+    const words: MeasuredWord[] = [];
+    groupLines.forEach((line, li) => {
+      const isLastLine = li === groupLines.length - 1;
+      line.words.forEach((w, wi) => {
+        const isLastWordInLine = wi === line.words.length - 1;
+        // A trailing space (except at the very end of the paragraph) keeps
+        // a word that wrapped mid-sentence from reading as one run-on word
+        // — and since it's part of the word's own text in the reader,
+        // offsets used for stored highlights/annotations stay in sync.
+        const needsSpace = isLastWordInLine && !isLastLine && !/\s$/.test(w.text);
+        words.push(needsSpace ? { ...w, text: `${w.text} ` } : w);
+      });
+    });
+    return words;
+  });
 }
 
 const ICLOUD_HINT =
@@ -247,7 +275,7 @@ export async function convertPdfToBlocks(
     diagnostics = result.diagnostics;
 
     const totalLines = blocks.reduce(
-      (sum, b) => sum + (b.type === "page" ? b.textBlocks.reduce((s, tb) => s + tb.lines.length, 0) : 0),
+      (sum, b) => sum + (b.type === "page" ? b.textBlocks.reduce((s, tb) => s + tb.words.length, 0) : 0),
       0
     );
     if (totalLines > 0 || attempt === MAX_ATTEMPTS) break;
@@ -260,7 +288,7 @@ export async function convertPdfToBlocks(
   }
 
   const totalLines = blocks.reduce(
-    (sum, b) => sum + (b.type === "page" ? b.textBlocks.reduce((s, tb) => s + tb.lines.length, 0) : 0),
+    (sum, b) => sum + (b.type === "page" ? b.textBlocks.reduce((s, tb) => s + tb.words.length, 0) : 0),
     0
   );
   const warning =
@@ -284,7 +312,7 @@ async function convertOnce(
       const page = await doc.getPage(pageNum);
       const viewport = page.getViewport({ scale: RENDER_SCALE });
 
-      let paragraphs: MeasuredGroupLine[][] = [];
+      let paragraphs: MeasuredWord[][] = [];
       try {
         const items = await measureTextItems(page, viewport, pdfjsLib);
         const lines = bucketItemsIntoLines(items);
@@ -316,16 +344,15 @@ async function convertOnce(
       canvas.width = 0;
       canvas.height = 0;
 
-      const textBlocks: PageTextBlock[] = paragraphs.map((groupLines, i) => ({
+      const textBlocks: PageTextBlock[] = paragraphs.map((paragraphWords, i) => ({
         id: `b${i}`,
-        text: groupLines.map((l) => l.text).join(""),
-        lines: groupLines.map((l) => ({
-          text: l.text,
-          xPct: (l.x / viewport.width) * 100,
-          yPct: (l.y / viewport.height) * 100,
-          widthPct: (l.width / viewport.width) * 100,
-          heightPct: (l.height / viewport.height) * 100,
-          fontSizePct: (l.height / viewport.width) * 100,
+        text: paragraphWords.map((w) => w.text).join(""),
+        words: paragraphWords.map((w) => ({
+          text: w.text,
+          xPct: (w.x / viewport.width) * 100,
+          yPct: (w.y / viewport.height) * 100,
+          widthPct: (w.width / viewport.width) * 100,
+          heightPct: (w.height / viewport.height) * 100,
         })),
       }));
 

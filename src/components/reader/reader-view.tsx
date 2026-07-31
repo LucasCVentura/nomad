@@ -31,11 +31,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useConversationUnread } from "@/lib/use-conversation-unread";
 import type { ContentBlock, PageTextBlock } from "@/lib/supabase/types";
 
+type WordRange = { start: number; end: number };
+
 // "page" blocks have no real DOM text to select — a highlight is just a
-// [start,end) range within the paragraph's concatenated text. Walk the
-// line boxes (each already positioned/sized exactly from conversion) and
-// draw one rect per line the range touches, clipped to the covered
-// fraction of that line's width for partial first/last lines.
+// [start,end) range within the paragraph's concatenated text. Every stored
+// range already lands exactly on word boundaries (see hitTestPage below),
+// so a highlight is simply the union of its words' own measured boxes —
+// no left/right fraction estimating needed.
 function renderPageHighlight(
   tb: PageTextBlock,
   range: { start: number; end: number },
@@ -44,24 +46,20 @@ function renderPageHighlight(
 ) {
   let cursor = 0;
   const rects: React.ReactNode[] = [];
-  tb.lines.forEach((line, li) => {
-    const lineStart = cursor;
-    const lineEnd = lineStart + line.text.length;
-    cursor = lineEnd;
-    const start = Math.max(range.start, lineStart);
-    const end = Math.min(range.end, lineEnd);
-    if (end <= start || line.text.length === 0) return;
-    const fracStart = (start - lineStart) / line.text.length;
-    const fracEnd = (end - lineStart) / line.text.length;
+  tb.words.forEach((word, wi) => {
+    const start = cursor;
+    const end = start + word.text.length;
+    cursor = end;
+    if (end <= range.start || start >= range.end) return;
     rects.push(
       <div
-        key={`${key}-${li}`}
+        key={`${key}-${wi}`}
         className={`pointer-events-none absolute rounded-sm ${colorClass}`}
         style={{
-          left: `${line.xPct + fracStart * line.widthPct}%`,
-          top: `${line.yPct}%`,
-          width: `${(fracEnd - fracStart) * line.widthPct}%`,
-          height: `${line.heightPct}%`,
+          left: `${word.xPct}%`,
+          top: `${word.yPct}%`,
+          width: `${word.widthPct}%`,
+          height: `${word.heightPct}%`,
         }}
       />
     );
@@ -69,57 +67,31 @@ function renderPageHighlight(
   return rects;
 }
 
-type WordRange = { start: number; end: number };
-
-// Splits on whitespace, each word keeping its trailing space so re-joining
-// every chunk reproduces the original string — used to snap a raw tap/drag
-// character offset out to a whole-word boundary.
-function tokenizeWords(text: string): WordRange[] {
-  const matches = text.match(/\S+\s*/g) ?? (text ? [text] : []);
-  const words: WordRange[] = [];
-  let cursor = 0;
-  for (const w of matches) {
-    const start = cursor;
-    const end = start + w.length;
-    words.push({ start, end });
-    cursor = end;
-  }
-  return words;
-}
-
-function wordAt(text: string, charOffset: number): WordRange {
-  const words = tokenizeWords(text);
-  return (
-    words.find((w) => charOffset >= w.start && charOffset <= w.end) ?? {
-      start: charOffset,
-      end: charOffset,
-    }
-  );
-}
-
-// Maps a tap/drag point (as a % of the page image) to the nearest line —
+// Maps a tap/drag point (as a % of the page image) to the nearest word —
 // preferring one the point actually falls inside, falling back to whichever
-// line's vertical center is closest — then estimates a character offset
-// within that line from the point's horizontal fraction (proportional by
-// character count, since we don't keep a real per-character width).
+// word's center is closest — and returns that word's exact [start,end)
+// range within the paragraph's text directly, since each word already
+// carries its own real measured box (no snapping step needed afterward).
 function hitTestPage(textBlocks: PageTextBlock[], xPct: number, yPct: number) {
-  let best: { tb: PageTextBlock; charOffset: number; dist: number; inside: boolean } | null = null;
+  let best: { tb: PageTextBlock; start: number; end: number; dist: number; inside: boolean } | null = null;
   for (const tb of textBlocks) {
     let cursor = 0;
-    for (const line of tb.lines) {
-      const lineStart = cursor;
-      cursor += line.text.length;
-      const inside = yPct >= line.yPct && yPct <= line.yPct + line.heightPct;
-      const dist = Math.abs(yPct - (line.yPct + line.heightPct / 2));
+    for (const word of tb.words) {
+      const start = cursor;
+      const end = start + word.text.length;
+      cursor = end;
+      const insideX = xPct >= word.xPct && xPct <= word.xPct + word.widthPct;
+      const insideY = yPct >= word.yPct && yPct <= word.yPct + word.heightPct;
+      const inside = insideX && insideY;
+      const cx = word.xPct + word.widthPct / 2;
+      const cy = word.yPct + word.heightPct / 2;
+      const dist = Math.hypot(xPct - cx, yPct - cy);
       if (best === null || (inside && !best.inside) || (inside === best.inside && dist < best.dist)) {
-        const frac = line.widthPct > 0 ? (xPct - line.xPct) / line.widthPct : 0;
-        const clamped = Math.max(0, Math.min(1, frac));
-        const localChar = Math.round(clamped * line.text.length);
-        best = { tb, charOffset: lineStart + localChar, dist, inside };
+        best = { tb, start, end, dist, inside };
       }
     }
   }
-  return best ? { tb: best.tb, charOffset: best.charOffset } : null;
+  return best ? { tb: best.tb, start: best.start, end: best.end } : null;
 }
 
 function computeHit(el: HTMLElement, clientX: number, clientY: number, textBlocks: PageTextBlock[]) {
@@ -447,7 +419,7 @@ export function ReaderView({
     const el = e.currentTarget;
     const hit = computeHit(el, e.clientX, e.clientY, textBlocks);
     if (!hit) return;
-    const anchorWord = wordAt(hit.tb.text, hit.charOffset);
+    const anchorWord = { start: hit.start, end: hit.end };
     pageDragRef.current = { blockIndex, tb: hit.tb, anchorWord };
     setPendingFromWords(blockIndex, hit.tb, anchorWord, anchorWord, e.clientX, e.clientY);
 
@@ -456,7 +428,7 @@ export function ReaderView({
       if (!drag) return;
       const h = computeHit(el, ev.clientX, ev.clientY, [drag.tb]);
       if (!h) return;
-      const currentWord = wordAt(drag.tb.text, h.charOffset);
+      const currentWord = { start: h.start, end: h.end };
       setPendingFromWords(drag.blockIndex, drag.tb, drag.anchorWord, currentWord, ev.clientX, ev.clientY);
     }
     function onUp() {
@@ -477,7 +449,7 @@ export function ReaderView({
     const hit = computeHit(e.currentTarget, e.clientX, e.clientY, textBlocks);
     if (!hit) return;
     const sentence = tokenizeSentences(hit.tb.text).find(
-      (s) => hit.charOffset >= s.start && hit.charOffset <= s.end
+      (s) => hit.start >= s.start && hit.start <= s.end
     );
     if (!sentence) return;
     handleSentenceTap(`pg${blockIndex}-${hit.tb.id}`, hit.tb.text, sentence.start, sentence.end);

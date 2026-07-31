@@ -3,25 +3,28 @@
 export type { Database, Json } from "@/lib/supabase/database.types";
 import type { Database } from "@/lib/supabase/database.types";
 
-// One real PDF text line's exact, browser-measured box (via pdf.js's own
-// TextLayer — not an estimate), positioned as a percentage of the page's
-// width/height so it scales with it.
-export type PageTextLine = {
+// One word's exact, browser-measured box (derived from pdf.js's own
+// TextLayer positions — not an estimate), positioned as a percentage of the
+// page's width/height so it scales with it. Word-level (not line-level) so
+// a highlight can be drawn from real boxes directly, with no left/right
+// fraction guessing — every stored selection range already snaps to whole
+// word boundaries, so a highlight is just the union of its words' boxes.
+export type PageTextWord = {
   text: string;
   xPct: number;
   yPct: number;
   widthPct: number;
   heightPct: number;
-  fontSizePct: number; // relative to the page's own width, applied via cqw
 };
 
 // A group of nearby lines that share one selectable/annotatable "paragraph"
-// — a drag-select or highlight can span multiple lines, each still kept at
-// its own precise position instead of being reflowed into one guessed box.
+// — a drag-select or highlight can span multiple lines, each word still
+// kept at its own precise position instead of being reflowed into one
+// guessed box.
 export type PageTextBlock = {
   id: string;
   text: string;
-  lines: PageTextLine[];
+  words: PageTextWord[];
 };
 
 export type ContentBlock =
