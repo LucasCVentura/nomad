@@ -3,10 +3,9 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
-> **Status (31/07/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6 e 9.
-> Continuam abertos: **2b** (depende do pagamento), **7** (recuperação de
-> senha — aguardando o domínio para ter um e-mail próprio) e **8** (limite de
-> tamanho do PDF).
+> **Status (31/07/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6, 8 e 9.
+> Continuam abertos apenas **2b** (depende da liberação do Asaas) e **7**
+> (recuperação de senha — aguardando o domínio para ter um e-mail próprio).
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -284,7 +283,26 @@ pendência no resumo entregue à Dra.
 
 ### 8. Nenhum limite de tamanho ou de páginas no PDF
 
-- [ ] Validar antes de converter
+- [x] ~~Validar antes de converter~~ — **resolvido em 31/07/2026**
+
+> Dois tetos em `src/lib/pdf-convert.ts`, ambos checados **antes** de renderizar
+> qualquer página, para falhar na hora em vez de depois de minutos de trabalho:
+> **150 páginas** e **50 MB**.
+>
+> Os números vieram de medição, não de chute. Na conversão do curso publicado:
+> ~420 KB por página de texto (uma digitalizada dá várias vezes isso) e ~0,14 s
+> por página. O gargalo não é tempo — é **memória**: a conversão roda no
+> navegador e segura todas as páginas em base64 até publicar, então o teto é o
+> aparelho mais fraco que pode fazer isso (a Dra. pelo celular). 150 páginas
+> ≈ 60 MB de imagem na memória de uma vez.
+>
+> Os buckets também ganharam teto próprio
+> (`supabase/patches/2026-07-31-limites-de-arquivo.sql`), para a falha ser igual
+> dos dois lados em vez de depender do limite global do projeto.
+>
+> **Verificado:** com um PDF de 200 páginas e outro de 55 MB, ambos barram em
+> menos de 0,2 s com mensagem explicando o limite e o que fazer; o PDF real de
+> 18 páginas continua convertendo normalmente.
 
 `src/lib/pdf-convert.ts` só rejeita arquivo vazio (`file.size === 0`). Um PDF
 muito grande vai travar a conversão no navegador ou estourar no insert,

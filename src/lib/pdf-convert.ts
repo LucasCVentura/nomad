@@ -247,6 +247,25 @@ const ICLOUD_HINT =
 // times whenever that happens.
 const MAX_ATTEMPTS = 3;
 
+// Conversion runs in the browser and holds every page in memory as a base64
+// string until the content is published, so the ceiling is memory on the
+// weakest device that might do it — the Dra. converting from a phone — not
+// anything on the server. Measured on the published course: ~420 KB per page
+// of text, and a scanned page runs several times that. 150 pages is roughly
+// 60 MB of images held at once for text, which a phone still handles; well
+// past that the tab gets killed mid-conversion with nothing to show for it.
+// (Speed isn't the constraint: ~0.14 s per page on a laptop.)
+const MAX_PAGES = 150;
+
+// The original PDF is uploaded to storage as-is, and Supabase's default
+// per-file ceiling is 50 MB — past this the upload would fail on its own,
+// after the whole conversion had already run.
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+function formatMb(bytes: number) {
+  return `${(bytes / 1024 / 1024).toFixed(0)} MB`;
+}
+
 export type ConvertResult = {
   blocks: ContentBlock[];
   // Set only if every attempt still came back with zero extractable text —
@@ -261,6 +280,12 @@ export async function convertPdfToBlocks(
 ): Promise<ConvertResult> {
   if (file.size === 0) {
     throw new Error(`arquivo vazio — ${ICLOUD_HINT}`);
+  }
+
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error(
+      `o arquivo tem ${formatMb(file.size)} e o limite é ${formatMb(MAX_FILE_BYTES)} — comprima o PDF ou divida em partes`
+    );
   }
 
   polyfillMapUpsert();
@@ -284,6 +309,15 @@ export async function convertPdfToBlocks(
     cMapPacked: true,
     standardFontDataUrl: "/pdfjs/standard_fonts/",
   }).promise;
+
+  // Checked here, not before opening the file, because the page count is only
+  // known once pdf.js has parsed it — but still before any page is rendered,
+  // so an over-long PDF fails immediately instead of after minutes of work.
+  if (doc.numPages > MAX_PAGES) {
+    throw new Error(
+      `o PDF tem ${doc.numPages} páginas e o limite é ${MAX_PAGES} — divida em partes e publique como conteúdos separados`
+    );
+  }
 
   let blocks: ContentBlock[] = [];
   let diagnostics: string[] = [];

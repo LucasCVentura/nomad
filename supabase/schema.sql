@@ -255,16 +255,19 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('content-videos', 'content-videos', true, 524288000)
 on conflict (id) do nothing;
 
-insert into storage.buckets (id, name, public)
-values ('content-pdfs', 'content-pdfs', false)
+-- Tetos por arquivo: o mesmo limite que o app aplica antes de converter, para
+-- a falha ser igual dos dois lados em vez de depender do limite global do
+-- projeto (que pode mudar no dashboard sem ninguém notar).
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('content-pdfs', 'content-pdfs', false, 52428800)
 on conflict (id) do nothing;
 
 -- content-pages: cada página do PDF convertida em imagem. É o produto pago,
 -- então o bucket é privado e o app assina as URLs na hora de renderizar —
 -- num bucket público bastaria montar a URL a partir do slug (que é público)
 -- para baixar o curso inteiro, página por página.
-insert into storage.buckets (id, name, public)
-values ('content-pages', 'content-pages', false)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('content-pages', 'content-pages', false, 10485760)
 on conflict (id) do nothing;
 
 create policy "Public read of content images"
