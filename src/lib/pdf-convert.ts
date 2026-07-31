@@ -54,16 +54,29 @@ type MeasuredLine = { words: MeasuredWord[]; top: number; bottom: number; height
 
 // Runs the page's real text content through pdf.js's own TextLayer — the
 // exact code every PDF.js-based viewer uses to build its selectable overlay
-// — into an offscreen container, then reads back each run's actual
-// browser-laid-out box. This replaces guessing width/height from character
-// counts: the measured box already accounts for font substitution, kerning,
-// everything, because it's the same measurement a real viewer would show.
+// — into an offscreen container, then reads back where each run landed.
+//
+// Position comes from that layout (pdf.js places every run with the page's
+// own transform), but the run's *width* deliberately does not: the browser
+// lays the text out in whichever font it actually has, and a substituted
+// face is narrower than the embedded one it stands in for. A real viewer
+// hides that by stretching each span with a `--scale-x` correction; we'd be
+// measuring before that correction, so every run came back a few percent
+// narrow. The error compounds along a line — by its end it was enough to
+// leave the last word or two outside anything drawn from these boxes. So
+// width is taken from `item.width`, pdf.js's own advance width for the run
+// straight out of the content stream, which no font substitution can skew.
 async function measureTextItems(
   page: any,
   viewport: any,
   pdfjsLib: PdfjsLib
 ): Promise<MeasuredItem[]> {
   const textContent = await page.getTextContent();
+  // Marked-content markers carry no `str` and get no div, so dropping them
+  // lines this up index-for-index with textDivs/textContentItemsStr below.
+  const geomItems = textContent.items.filter(
+    (item: any) => typeof item?.str === "string"
+  );
 
   const container = document.createElement("div");
   container.style.position = "absolute";
@@ -96,11 +109,17 @@ async function measureTextItems(
       div.style.fontSize = `${fontHeight * viewport.scale}px`;
       const r = div.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return;
+      // Falls back to the laid-out width only if the two lists somehow
+      // drifted out of step — a slightly narrow box beats a wildly
+      // misplaced one.
+      const geom = geomItems[i];
+      const advance =
+        geom && geom.str === text ? geom.width * viewport.scale : 0;
       items.push({
         text,
         x: r.left - containerRect.left,
         y: r.top - containerRect.top,
-        width: r.width,
+        width: advance > 0 ? advance : r.width,
         height: r.height,
       });
     });
