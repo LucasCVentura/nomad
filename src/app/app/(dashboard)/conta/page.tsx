@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ShoppingBag } from "lucide-react";
+import { ChevronRight, Receipt, ShoppingBag } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { createClient } from "@/lib/supabase/server";
 
@@ -49,6 +49,16 @@ export default async function ContaPage() {
           <span className="flex items-center gap-3">
             <ShoppingBag className="size-4 text-muted-foreground" />
             Loja
+          </span>
+          <ChevronRight className="size-4 text-muted-foreground" />
+        </Link>
+        <Link
+          href="/app/pedidos"
+          className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-3.5 text-sm text-foreground hover:bg-muted"
+        >
+          <span className="flex items-center gap-3">
+            <Receipt className="size-4 text-muted-foreground" />
+            Meus pedidos
           </span>
           <ChevronRight className="size-4 text-muted-foreground" />
         </Link>

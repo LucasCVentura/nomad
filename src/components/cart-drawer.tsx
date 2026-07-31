@@ -13,6 +13,9 @@ export function CartDrawer() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [needsCpf, setNeedsCpf] = useState(false);
+  const [cpf, setCpf] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -25,6 +28,10 @@ export function CartDrawer() {
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
 
+  // A compra passa pelo servidor: ele confere os preços no banco, cria a
+  // cobrança no Asaas e devolve a página de pagamento. O navegador nunca
+  // libera acesso sozinho — quem faz isso é o webhook, quando o pagamento
+  // confirma.
   async function handleCheckout() {
     if (!isLoggedIn) {
       setOpen(false);
@@ -32,36 +39,39 @@ export function CartDrawer() {
       return;
     }
     setCheckingOut(true);
-    const supabase = createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) {
+    setError(null);
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentIds: items.map((item) => item.id),
+          cpf: cpf || undefined,
+        }),
+      });
+      const data = await response.json();
+
+      // O Asaas exige CPF para criar o cliente. Em vez de pedir de todo mundo
+      // no cadastro, ele é pedido aqui, uma vez, e guardado para as próximas.
+      if (response.status === 422 && data.error === "cpf_required") {
+        setNeedsCpf(true);
+        setCheckingOut(false);
+        return;
+      }
+      if (!response.ok) {
+        setError(data.error ?? "Não consegui iniciar o pagamento.");
+        setCheckingOut(false);
+        return;
+      }
+
+      // O carrinho só é esvaziado depois que a cobrança existe — se algo
+      // falhar antes disso, ela não perde o que tinha escolhido.
+      clear();
+      window.location.href = data.invoiceUrl;
+    } catch {
+      setError("Não consegui falar com o servidor. Confira a conexão.");
       setCheckingOut(false);
-      setOpen(false);
-      router.push("/entrar?next=/app/loja");
-      return;
-    }
-
-    // Inserted one at a time (not as a single bulk insert) so a content the
-    // student already owns — e.g. added to the cart in one tab, bought in
-    // another — just fails silently for that one row instead of the unique
-    // constraint rejecting the whole batch.
-    let anySuccess = false;
-    for (const item of items) {
-      const { error } = await supabase
-        .from("purchases")
-        .insert({ user_id: user.id, content_id: item.id });
-      if (!error) anySuccess = true;
-    }
-
-    setCheckingOut(false);
-    clear();
-    setOpen(false);
-    if (anySuccess) {
-      router.push("/app");
-      router.refresh();
     }
   }
 
@@ -121,15 +131,37 @@ export function CartDrawer() {
                 R$ {total.toFixed(2).replace(".", ",")}
               </span>
             </div>
+            {needsCpf && (
+              <div className="space-y-1.5">
+                <label htmlFor="cpf" className="text-sm text-foreground">
+                  Seu CPF
+                </label>
+                <input
+                  id="cpf"
+                  inputMode="numeric"
+                  autoFocus
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  placeholder="000.000.000-00"
+                  className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Pedido uma única vez, exigido para emitir a cobrança.
+                </p>
+              </div>
+            )}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
             <Button
               className="bg-rose text-rose-foreground hover:bg-rose/90"
-              disabled={checkingOut}
+              disabled={checkingOut || (needsCpf && cpf.replace(/\D/g, "").length !== 11)}
               onClick={handleCheckout}
             >
               {checkingOut
-                ? "Finalizando..."
+                ? "Abrindo pagamento..."
                 : isLoggedIn
-                  ? "Finalizar compra"
+                  ? "Ir para o pagamento"
                   : "Entrar para finalizar"}
             </Button>
           </div>

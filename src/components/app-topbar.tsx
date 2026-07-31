@@ -26,6 +26,7 @@ const TITLES: Record<string, string> = {
   "/app": "Meus conteúdos",
   "/app/loja": "Loja",
   "/app/conta": "Minha conta",
+  "/app/pedidos": "Meus pedidos",
 };
 
 export function AppTopbar() {
