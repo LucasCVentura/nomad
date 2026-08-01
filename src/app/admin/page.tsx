@@ -1,5 +1,7 @@
 import { GraduationCap, ShoppingBag, FileStack, DollarSign } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/server";
+import { getInitials, avatarStyle, timeAgo } from "@/lib/utils";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -19,7 +21,7 @@ export default async function AdminDashboardPage() {
       supabase.from("purchases").select("contents(price)"),
       supabase
         .from("purchases")
-        .select("purchased_at, profiles(name), contents(title)")
+        .select("user_id, purchased_at, profiles(name), contents(title, price)")
         .order("purchased_at", { ascending: false })
         .limit(6),
     ]);
@@ -81,22 +83,31 @@ export default async function AdminDashboardPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {recent.map((sale, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded-xl border border-border/60 bg-background/60 p-4 text-sm"
-              >
-                <div>
-                  <p className="text-foreground">{sale.contents?.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {sale.profiles?.name ?? "Aluna"}
-                  </p>
+            {recent.map((sale, i) => {
+              const name = sale.profiles?.name ?? "Aluna";
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-4 text-sm"
+                >
+                  <Avatar size="sm" className="shrink-0">
+                    <AvatarFallback className={`font-medium ${avatarStyle(sale.user_id)}`}>
+                      {getInitials(name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-foreground">{sale.contents?.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{name}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-foreground tabular-nums">
+                      {formatCurrency(sale.contents?.price ?? 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{timeAgo(sale.purchased_at)}</p>
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(sale.purchased_at).toLocaleDateString("pt-BR")}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

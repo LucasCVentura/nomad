@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { Users, UserCheck, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { AlunasGrid, type AlunaRow } from "@/components/admin/alunas-grid";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -25,7 +26,7 @@ export default async function AdminAlunosPage() {
     byStudent.set(p.user_id, entry);
   }
 
-  const rows = (profiles ?? []).map((profile) => ({
+  const rows: AlunaRow[] = (profiles ?? []).map((profile) => ({
     id: profile.id,
     name: profile.name ?? "Aluna",
     email: profile.email ?? "",
@@ -34,50 +35,32 @@ export default async function AdminAlunosPage() {
     totalSpent: byStudent.get(profile.id)?.total ?? 0,
   }));
 
+  const buyers = rows.filter((r) => r.courseCount > 0);
+  const totalRevenue = rows.reduce((sum, r) => sum + r.totalSpent, 0);
+  const averageTicket = buyers.length > 0 ? totalRevenue / buyers.length : 0;
+
+  const stats = [
+    { label: "Alunas cadastradas", value: String(rows.length), icon: Users },
+    { label: "Já compraram", value: String(buyers.length), icon: UserCheck },
+    { label: "Ticket médio", value: formatCurrency(averageTicket), icon: Wallet },
+  ];
+
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <p className="text-sm text-muted-foreground">{rows.length} aluna(s) cadastrada(s).</p>
-
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60">
-        {rows.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">
-            Nenhuma aluna cadastrada ainda.
+      <div className="grid gap-5 sm:grid-cols-3">
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-2xl border border-border/60 bg-card p-5">
+            <div className="mb-3 flex size-9 items-center justify-center rounded-lg bg-rose/15 text-rose">
+              <stat.icon className="size-4" />
+            </div>
+            <p className="font-heading text-2xl text-foreground">{stat.value}</p>
+            <p className="text-sm text-muted-foreground">{stat.label}</p>
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-border/60 bg-card/60 text-left text-xs text-muted-foreground uppercase">
-              <tr>
-                <th className="px-5 py-3 font-medium">Nome</th>
-                <th className="px-5 py-3 font-medium">E-mail</th>
-                <th className="px-5 py-3 font-medium">Cursos</th>
-                <th className="px-5 py-3 font-medium">Total gasto</th>
-                <th className="px-5 py-3 font-medium">Cadastro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/admin/alunos/${row.id}`}
-                      className="text-foreground hover:text-rose"
-                    >
-                      {row.name}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground">{row.email}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{row.courseCount}</td>
-                  <td className="px-5 py-3 text-muted-foreground">
-                    {formatCurrency(row.totalSpent)}
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground">
-                    {new Date(row.joinedAt).toLocaleDateString("pt-BR")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        ))}
+      </div>
+
+      <div className="mt-8">
+        <AlunasGrid rows={rows} />
       </div>
     </div>
   );

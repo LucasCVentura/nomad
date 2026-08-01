@@ -15,12 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  const initials = parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2);
-  return initials.toUpperCase();
-}
+import { getInitials } from "@/lib/utils";
 
 const TITLES: Record<string, string> = {
   "/app": "Meus conteúdos",

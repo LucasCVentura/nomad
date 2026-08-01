@@ -14,6 +14,22 @@ export function slugify(text: string) {
     .replace(/^-+|-+$/g, "")
 }
 
+export function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/)
+  const initials = parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2)
+  return initials.toUpperCase()
+}
+
+// Cycles through a few accent pairs by id so a grid of avatars doesn't read
+// as a wall of identical circles — purely decorative, no meaning attached
+// to who gets which color.
+const AVATAR_STYLES = ["bg-rose/15 text-rose", "bg-gold/15 text-gold", "bg-rose/10 text-rose-strong"]
+
+export function avatarStyle(id: string) {
+  const sum = [...id].reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  return AVATAR_STYLES[sum % AVATAR_STYLES.length]
+}
+
 export function timeAgo(dateString: string) {
   const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000)
   if (seconds < 60) return "agora"

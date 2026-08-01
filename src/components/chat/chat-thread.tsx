@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, getInitials, avatarStyle } from "@/lib/utils";
 
 export type ChatMessage = {
   id: string;
@@ -13,6 +14,13 @@ export type ChatMessage = {
   senderId: string;
   senderName: string;
 };
+
+// Consecutive messages from the same sender within this window are grouped
+// visually — one avatar/name for the whole run instead of repeating it per
+// bubble, the way a real chat app reads. Wide enough to cover a burst of
+// short messages typed a few seconds apart, narrow enough that a reply
+// after a real gap still starts its own group.
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 export function ChatThread({
   conversationId,
@@ -35,6 +43,8 @@ export function ChatThread({
   const [threadId, setThreadId] = useState(conversationId);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // The panel this lives in unmounts on close, so `conversationId` can be a
   // stale prop from before a conversation existed (e.g. it was created
@@ -138,6 +148,25 @@ export function ChatThread({
     };
   }, [threadId, currentUserId, otherPartyName]);
 
+  // Jumps straight to the newest message — on first load and every time the
+  // list grows — instead of leaving whoever opens a long conversation
+  // stranded at the top of it. `scrollIntoView` finds whichever ancestor
+  // actually scrolls (the reader's side panel, or the page itself in the
+  // admin view), so this needs no knowledge of which context it's in.
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length]);
+
+  // A textarea that grows with what's typed, up to a few lines, instead of
+  // a fixed two rows that either wastes space empty or clips a longer
+  // message behind a scrollbar.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [body]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = body.trim();
@@ -184,50 +213,96 @@ export function ChatThread({
     }
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter sends, like every chat app; Shift+Enter is the escape hatch for
+    // an actual line break.
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  }
+
   return (
-    <div className="flex flex-col">
-      <div className="flex-1 space-y-3">
+    <div className="flex flex-1 flex-col">
+      <div className="flex-1 space-y-1">
         {messages.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border/60 p-10 text-center text-sm text-muted-foreground">
             {emptyStateLabel}
           </p>
         ) : (
-          messages.map((message) => {
+          messages.map((message, i) => {
             const mine = message.senderId === currentUserId;
+            const prev = messages[i - 1];
+            const next = messages[i + 1];
+            // A message opens a new group when it follows a different
+            // sender or a real gap in time — that's when the avatar/name
+            // repeat and the group gets its usual breathing room above it.
+            const startsGroup =
+              !prev ||
+              prev.senderId !== message.senderId ||
+              Date.parse(message.createdAt) - Date.parse(prev.createdAt) > GROUP_WINDOW_MS;
+            const endsGroup =
+              !next ||
+              next.senderId !== message.senderId ||
+              Date.parse(next.createdAt) - Date.parse(message.createdAt) > GROUP_WINDOW_MS;
+
             return (
-              <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
-                    mine
-                      ? "bg-rose text-rose-foreground"
-                      : "border border-border/60 bg-card text-foreground"
-                  }`}
-                >
-                  {!mine && (
-                    <p className="mb-0.5 text-[11px] font-medium text-gold">
+              <div
+                key={message.id}
+                className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"} ${
+                  startsGroup ? "pt-3" : ""
+                }`}
+              >
+                {!mine && (
+                  <Avatar
+                    size="sm"
+                    className={`shrink-0 ${endsGroup ? "" : "invisible"}`}
+                  >
+                    <AvatarFallback className={`font-medium ${avatarStyle(message.senderId)}`}>
+                      {getInitials(message.senderName)}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div className={`flex max-w-[75%] flex-col ${mine ? "items-end" : "items-start"}`}>
+                  {!mine && startsGroup && (
+                    <p className="mb-1 px-1 text-[11px] font-medium text-gold">
                       {message.senderName}
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
-                  <p
-                    className={`mt-1 text-[10px] ${mine ? "text-rose-foreground/70" : "text-muted-foreground"}`}
+                  <div
+                    className={`rounded-2xl px-4 py-2.5 text-sm ${
+                      mine
+                        ? "bg-rose text-rose-foreground"
+                        : "border border-border/60 bg-card text-foreground"
+                    }`}
                   >
-                    {timeAgo(message.createdAt)}
-                  </p>
+                    <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
+                  </div>
+                  {endsGroup && (
+                    <p className="mt-1 px-1 text-[10px] text-muted-foreground">
+                      {timeAgo(message.createdAt)}
+                    </p>
+                  )}
                 </div>
               </div>
             );
           })
         )}
+        <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-5 flex items-end gap-3">
+      <form
+        onSubmit={handleSubmit}
+        className="sticky bottom-0 mt-3 flex items-end gap-3 border-t border-border/60 bg-background/95 pt-3 backdrop-blur"
+      >
         <textarea
+          ref={textareaRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          rows={2}
+          onKeyDown={handleKeyDown}
+          rows={1}
           placeholder="Escreva sua mensagem..."
-          className="w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring"
+          className="max-h-30 w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring"
         />
         <Button
           type="submit"

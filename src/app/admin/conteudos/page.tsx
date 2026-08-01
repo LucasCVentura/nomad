@@ -1,21 +1,61 @@
 import Link from "next/link";
-import { Eye, Pencil, Plus } from "lucide-react";
+import { FileStack, CheckCircle2, PenLine, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { ConteudosGrid, type ConteudoRow } from "@/components/admin/conteudos-grid";
 
 export default async function AdminConteudosPage() {
   const supabase = await createClient();
-  const { data: contents } = await supabase
-    .from("contents")
-    .select("id, slug, title, category, price, status, created_at")
-    .order("created_at", { ascending: false });
+  const [{ data: contents }, { data: purchases }] = await Promise.all([
+    supabase
+      .from("contents")
+      .select("id, slug, title, category, price, status, cover_image_url, format, pages, created_at")
+      .order("created_at", { ascending: false }),
+    supabase.from("purchases").select("content_id"),
+  ]);
+
+  const salesByContent = new Map<string, number>();
+  for (const p of purchases ?? []) {
+    salesByContent.set(p.content_id, (salesByContent.get(p.content_id) ?? 0) + 1);
+  }
+
+  const rows: ConteudoRow[] = (contents ?? []).map((item) => ({
+    id: item.id,
+    slug: item.slug,
+    title: item.title,
+    category: item.category,
+    price: item.price,
+    status: item.status as "draft" | "published",
+    coverImageUrl: item.cover_image_url,
+    format: item.format,
+    pages: item.pages,
+    salesCount: salesByContent.get(item.id) ?? 0,
+  }));
+
+  const published = rows.filter((r) => r.status === "published").length;
+  const drafts = rows.length - published;
+
+  const stats = [
+    { label: "Conteúdos no total", value: String(rows.length), icon: FileStack },
+    { label: "Publicados", value: String(published), icon: CheckCircle2 },
+    { label: "Rascunhos", value: String(drafts), icon: PenLine },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">
-          {contents?.length ?? 0} conteúdo(s) no total.
-        </p>
+      <div className="grid gap-5 sm:grid-cols-3">
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-2xl border border-border/60 bg-card p-5">
+            <div className="mb-3 flex size-9 items-center justify-center rounded-lg bg-rose/15 text-rose">
+              <stat.icon className="size-4" />
+            </div>
+            <p className="font-heading text-2xl text-foreground">{stat.value}</p>
+            <p className="text-sm text-muted-foreground">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex justify-end">
         <Button
           className="bg-rose text-rose-foreground hover:bg-rose/90"
           render={<Link href="/admin/conteudos/novo" />}
@@ -26,69 +66,8 @@ export default async function AdminConteudosPage() {
         </Button>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-border/60">
-        {!contents || contents.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">
-            Nenhum conteúdo publicado ainda. Clique em &quot;Novo
-            conteúdo&quot; pra subir o primeiro PDF.
-          </div>
-        ) : (
-          <table className="w-full min-w-160 text-sm">
-            <thead className="border-b border-border/60 bg-card/60 text-left text-xs text-muted-foreground uppercase">
-              <tr>
-                <th className="px-5 py-3 font-medium">Título</th>
-                <th className="px-5 py-3 font-medium">Categoria</th>
-                <th className="px-5 py-3 font-medium">Preço</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {contents.map((item) => (
-                <tr key={item.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-5 py-3 text-foreground">{item.title}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{item.category}</td>
-                  <td className="px-5 py-3 text-muted-foreground">
-                    R$ {item.price.toFixed(2).replace(".", ",")}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs ${
-                        item.status === "published"
-                          ? "bg-rose/15 text-rose"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {item.status === "published" ? "Publicado" : "Rascunho"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        render={<Link href={`/admin/conteudos/${item.id}/editar`} />}
-                        nativeButton={false}
-                      >
-                        <Pencil className="size-3.5" />
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        render={<Link href={`/app/ler/${item.slug}`} />}
-                        nativeButton={false}
-                      >
-                        <Eye className="size-3.5" />
-                        Visualizar
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div className="mt-4">
+        <ConteudosGrid rows={rows} />
       </div>
     </div>
   );

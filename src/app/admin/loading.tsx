@@ -19,13 +19,17 @@ export default function Loading() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-xl border border-border/60 bg-background/60 p-4"
+              className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-4"
             >
-              <div className="w-full">
+              <Skeleton className="size-6 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1">
                 <Skeleton className="h-4 w-1/2 max-w-56" />
                 <Skeleton className="mt-2 h-3 w-24" />
               </div>
-              <Skeleton className="h-3 w-16 shrink-0" />
+              <div className="shrink-0 text-right">
+                <Skeleton className="ml-auto h-4 w-14" />
+                <Skeleton className="mt-2 ml-auto h-3 w-10" />
+              </div>
             </div>
           ))}
         </div>

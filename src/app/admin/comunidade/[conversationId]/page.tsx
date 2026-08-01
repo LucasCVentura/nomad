@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { ChatThread, type ChatMessage } from "@/components/chat/chat-thread";
+import { getInitials, avatarStyle } from "@/lib/utils";
 
 export default async function AdminConversationPage({
   params,
@@ -54,12 +56,19 @@ export default async function AdminConversationPage({
         Conversas
       </Link>
 
-      <div className="mb-6">
-        <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-          {conversation.contents?.category}
-        </span>
-        <h1 className="mt-1 font-heading text-2xl text-foreground">{studentName}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{conversation.contents?.title}</p>
+      <div className="mb-6 flex items-center gap-4">
+        <Avatar size="lg" className="shrink-0">
+          <AvatarFallback className={`text-sm font-medium ${avatarStyle(conversation.id)}`}>
+            {getInitials(studentName)}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
+            {conversation.contents?.category}
+          </span>
+          <h1 className="mt-0.5 font-heading text-2xl text-foreground">{studentName}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{conversation.contents?.title}</p>
+        </div>
       </div>
 
       <ChatThread
