@@ -1,12 +1,16 @@
 import { cn } from "@/lib/utils";
+import { MONOGRAM_F, MONOGRAM_N } from "@/components/logo-paths";
 
 /**
  * Anel em ouro com o monograma NF.
  *
- * O monograma é <text> dentro do próprio SVG, e não um span ao lado: assim ele
- * escala junto com o anel em qualquer tamanho, sem recalcular o corpo da fonte
- * a cada uso. N e F são ambos angulares e de haste vertical, então sobrepô-los
- * faz o F sumir dentro do N — é a cor que separa as duas letras, não a forma.
+ * O monograma é contorno, e não <text>: webfont dentro de SVG não é confiável
+ * no Safari — se nada mais na página usar a fonte, ele pode nem baixá-la, e o
+ * logo sai quebrado no iPhone. Em contorno o desenho independe de fonte
+ * carregada, e o site deixa de precisar da Bodoni.
+ *
+ * Os traçados vêm de scripts/build-brand.py, o mesmo que gera os PNGs da
+ * marca, para não existirem duas cópias do desenho.
  */
 export function Logomark({ className }: { className?: string }) {
   return (
@@ -24,20 +28,10 @@ export function Logomark({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="1.7"
       />
-      {/* 40 = 40% do diâmetro; acima de ~44 as serifas encostam no anel. */}
-      <text
-        x="50"
-        y="50"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize="40"
-        style={{ fontFamily: "var(--font-bodoni)" }}
-      >
-        <tspan fill="currentColor">N</tspan>
-        <tspan dx="-4" className="fill-rose">
-          F
-        </tspan>
-      </text>
+      {/* N e F são ambos angulares e de haste vertical: sobrepô-los faz o F
+          sumir dentro do N, então é a cor que separa as duas letras. */}
+      <path d={MONOGRAM_N} fill="currentColor" />
+      <path d={MONOGRAM_F} className="fill-rose" />
     </svg>
   );
 }

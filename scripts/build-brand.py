@@ -9,14 +9,31 @@ empilhado de quatro níveis (marca / nome / categoria / assinatura). Rasteriza
 via Chrome headless, que renderiza oklch() nativamente — as cores saem
 idênticas às de globals.css.
 
-As fontes (Bodoni Moda, Oswald, Jost) são baixadas do Google Fonts na primeira
-execução e ficam em cache em scripts/.fonts/ — só o primeiro run precisa de rede.
+O monograma vira CONTORNO, não texto: webfont dentro de <svg><text> não é
+confiável no Safari (a fonte pode nem ser baixada se nada mais na página a
+usar), e foi o que quebrou o logo no iPhone. Como efeito colateral, o site
+deixa de precisar carregar a Bodoni.
+
+Este script é a fonte única do desenho: além dos PNGs, ele escreve os
+contornos em src/components/logo-paths.ts, que o componente do site consome.
+
+Requer fontTools + brotli:  pip3 install fonttools brotli
+
+As fontes são baixadas do Google Fonts na primeira execução e ficam em cache
+em scripts/.fonts/ — só o primeiro run precisa de rede.
 """
 import base64
 import pathlib
 import re
 import subprocess
 import sys
+
+from fontTools.misc.transform import Transform
+from fontTools.pens.boundsPen import BoundsPen
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.ttLib import TTFont
+from fontTools.varLib import instancer
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "public" / "brand"
@@ -34,6 +51,14 @@ NAME_WEIGHT = 400
 # Tamanho do monograma em relação ao diâmetro da marca. Acima de ~0.44 as
 # serifas do N e do F encostam no anel.
 MONO_SCALE = 0.40
+
+# Sobreposição entre N e F, em unidades do viewBox de 100.
+MONO_KERN = -4.0
+
+# A Bodoni tem eixo óptico: em texto o navegador o ajusta conforme o corpo, mas
+# um contorno é fixo e precisa de um valor só. 28 mantém o contraste no tamanho
+# grande e ainda segura as hastes finas aos 30px, onde 96 já some.
+MONO_OPSZ = 28
 
 FAMILIES = {"BodoniModa": "Bodoni+Moda:opsz,wght@6..96,400;6..96,500",
             "Oswald": "Oswald:wght@200;300;400;500;600",
@@ -64,28 +89,68 @@ def font_b64(name):
     return base64.b64encode(path.read_bytes()).decode()
 
 
+# Só as faces usadas como TEXTO nos PNGs. A Bodoni ainda é baixada (o
+# monograma sai dela), mas vira contorno, então não precisa ir no CSS.
 FACES = "".join(
     f"@font-face{{font-family:'{n}';font-weight:100 900;"
     f"src:url(data:font/woff2;base64,{font_b64(n)}) format('woff2')}}"
-    for n in FAMILIES)
+    for n in ("Oswald", "Jost"))
+font_b64("BodoniModa")  # garante o arquivo em cache para a extração
+
+
+def monogram_paths():
+    """Contornos do N e do F, já posicionados no viewBox de 100.
+
+    O conjunto é centrado pela CAIXA DE TINTA das duas letras, não pela linha
+    de base: é mais fiel do que confiar em dominant-baseline, que além de tudo
+    é irregular entre navegadores."""
+    fs = MONO_SCALE * 100
+    font = instancer.instantiateVariableFont(
+        TTFont(CACHE / "BodoniModa.woff2"), {"wght": 400, "opsz": MONO_OPSZ})
+    glyphs, cmap = font.getGlyphSet(), font.getBestCmap()
+    k = fs / font["head"].unitsPerEm
+    glyph = lambda c: glyphs[cmap[ord(c)]]
+    xs = {"N": 0.0, "F": glyph("N").width * k + MONO_KERN}
+
+    def draw(char, dx, dy, pen):
+        # y invertido: a fonte cresce para cima, o SVG para baixo.
+        glyph(char).draw(
+            TransformPen(pen, Transform().translate(dx, dy).scale(k, -k)))
+
+    bounds = None
+    for char in "NF":
+        b = BoundsPen(glyphs)
+        draw(char, xs[char], 0.0, b)
+        x0, y0, x1, y1 = b.bounds
+        bounds = ((x0, y0, x1, y1) if bounds is None else
+                  (min(bounds[0], x0), min(bounds[1], y0),
+                   max(bounds[2], x1), max(bounds[3], y1)))
+    ox = 50 - (bounds[0] + bounds[2]) / 2
+    oy = 50 - (bounds[1] + bounds[3]) / 2
+
+    out = {}
+    for char in "NF":
+        pen = SVGPathPen(glyphs, ntos=lambda v: f"{v:.2f}")
+        draw(char, xs[char] + ox, oy, pen)
+        out[char] = pen.getCommands()
+    return out
+
+
+MONO = monogram_paths()
 
 
 def mark(size):
-    """Anel em SVG; monograma em HTML por cima, para controle tipográfico.
-    N e F são ambos angulares e de haste vertical, então sobrepor as duas
-    letras faz o F desaparecer dentro do N — é a cor que as separa, não a
-    forma, daí o F em rosa."""
+    """Anel em ouro com o monograma NF em contorno.
+
+    N e F são ambos angulares e de haste vertical, então sobrepô-los faz o F
+    sumir dentro do N — é a cor que separa as duas letras, não a forma."""
     return (
-        f'<div style="position:relative;width:{size}px;height:{size}px">'
         f'<svg width="{size}" height="{size}" viewBox="0 0 100 100"'
-        f' xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0">'
+        f' xmlns="http://www.w3.org/2000/svg">'
         f'<circle cx="50" cy="50" r="34" fill="none" stroke="{GOLD}"'
-        f' stroke-width="1.7"/></svg>'
-        f'<div style="position:absolute;inset:0;display:flex;align-items:center;'
-        f'justify-content:center;font-family:BodoniModa,serif;'
-        f'font-size:{MONO_SCALE * size}px;line-height:1">'
-        f'<span style="color:{GOLD}">N</span>'
-        f'<span style="color:{ROSE};margin-left:-.1em">F</span></div></div>')
+        f' stroke-width="1.7"/>'
+        f'<path d="{MONO["N"]}" fill="{GOLD}"/>'
+        f'<path d="{MONO["F"]}" fill="{ROSE}"/></svg>')
 
 
 def lockup(*, s=1.0, fg=FG, weight=None):
@@ -153,10 +218,27 @@ def folha_de_pesos():
            f'justify-items:center">{cells}</div>', 420, 400, transparent=False)
 
 
+def escreve_contornos():
+    """Publica os contornos para o componente do site, para que app e PNG
+    saiam do mesmo desenho em vez de duas cópias que podem divergir."""
+    dest = ROOT / "src" / "components" / "logo-paths.ts"
+    dest.write_text(
+        "// GERADO por scripts/build-brand.py — não editar à mão.\n"
+        "// Contornos do monograma NF (Bodoni Moda 400, "
+        f"opsz {MONO_OPSZ}), num viewBox de 100x100.\n"
+        f'export const MONOGRAM_N =\n  "{MONO["N"]}";\n\n'
+        f'export const MONOGRAM_F =\n  "{MONO["F"]}";\n')
+    print(f"  {dest.relative_to(ROOT)}")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     if "--pesos" in sys.argv:
         return folha_de_pesos()
+
+    print("contornos do monograma")
+    escreve_contornos()
+
 
     print("logo completo — vertical")
     render("logo-vertical-claro", box(lockup(), 420, 330), 420, 330)
