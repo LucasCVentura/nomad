@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className="border-t border-border/60 px-6 py-14">
       <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Logo />
+          <Logo withSignature />
           <p className="mt-4 max-w-xs text-sm text-muted-foreground">
             Materiais de estudo e atendimento direto com a Dra. Nathalia.
           </p>

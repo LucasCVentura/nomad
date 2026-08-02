@@ -23,7 +23,7 @@ export function AuthShell({
       />
       <div className="w-full max-w-sm">
         <Link href="/" className="mb-10 flex justify-center">
-          <Logo />
+          <Logo withSignature />
         </Link>
         <div className="rounded-2xl border border-border/60 bg-card p-8 shadow-2xl shadow-black/30">
           <h1 className="font-heading text-2xl text-foreground">{title}</h1>

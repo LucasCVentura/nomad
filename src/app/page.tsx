@@ -454,9 +454,7 @@ export default async function Home() {
         {/* Final CTA */}
         <section id="comecar" className="px-6 py-24">
           <div className="relative mx-auto max-w-3xl overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-rose/10 via-card to-gold/10 px-8 py-16 text-center">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-gold/40">
-              <Logomark className="size-6 text-gold" />
-            </div>
+            <Logomark className="mx-auto size-14 text-gold" />
             <h2 className="mt-6 font-heading text-3xl text-foreground sm:text-4xl">
               Comece a estudar hoje
             </h2>

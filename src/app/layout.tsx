@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Roboto } from "next/font/google";
+import { Bodoni_Moda, Geist_Mono, Jost, Oswald, Roboto } from "next/font/google";
 import { CartProvider } from "@/lib/cart-context";
 import { CartDrawer } from "@/components/cart-drawer";
 import "./globals.css";
@@ -12,6 +12,23 @@ const roboto = Roboto({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// As três faces da marca. Só o logo as usa, então ficam fora de --font-heading
+// e são aplicadas pontualmente em components/logo.tsx.
+const bodoni = Bodoni_Moda({
+  variable: "--font-bodoni",
+  subsets: ["latin"],
+});
+
+const oswald = Oswald({
+  variable: "--font-oswald",
+  subsets: ["latin"],
+});
+
+const jost = Jost({
+  variable: "--font-jost",
   subsets: ["latin"],
 });
 
@@ -44,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`dark ${roboto.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${roboto.variable} ${geistMono.variable} ${bodoni.variable} ${oswald.variable} ${jost.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <CartProvider>
