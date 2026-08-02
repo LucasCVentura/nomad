@@ -240,9 +240,20 @@ def main():
     escreve_contornos()
 
 
-    print("logo completo — vertical")
+    print("logo completo — vertical (fundo transparente, para sobrepor)")
     render("logo-vertical-claro", box(lockup(), 420, 330), 420, 330)
     render("logo-vertical-escuro", box(lockup(fg=BG), 420, 330), 420, 330)
+
+    print("\nlogo completo — vertical (fundo sólido, para WhatsApp/Docs/etc,"
+          " onde transparência vira branco)")
+    render("logo-vertical-fundo-escuro",
+           f'<div style="background:{BG};display:grid;place-items:center;'
+           f'width:420px;min-height:330px">{lockup()}</div>',
+           420, 330, transparent=False)
+    render("logo-vertical-fundo-claro",
+           f'<div style="background:#f5f4f2;display:grid;place-items:center;'
+           f'width:420px;min-height:330px">{lockup(fg=BG)}</div>',
+           420, 330, transparent=False)
 
     print("\nlogo horizontal — cabeçalho")
     render("logo-horizontal-claro", box(horiz(), 360, 110), 360, 110)
