@@ -1,13 +1,14 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ShoppingBag,
   Highlighter,
   GraduationCap,
   MessageCircle,
+  Radio,
   ArrowRight,
   ArrowUpRight,
   FileText,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
@@ -46,6 +47,13 @@ const features = [
     title: "Fale com a Dra. Nathalia",
     description:
       "Um chat exclusivo em cada conteúdo que você compra pra tirar dúvidas direto com quem escreveu o material.",
+  },
+  {
+    icon: Radio,
+    title: "Acesso às lives",
+    description:
+      "Aulas ao vivo com a Dra. Nathalia pra quem já tem algum conteúdo, com gravação disponível depois pra quem não puder assistir na hora.",
+    comingSoon: true,
   },
 ];
 
@@ -195,7 +203,7 @@ export default async function Home() {
 
                 <div className="absolute -bottom-6 -right-8 w-56 rotate-3 rounded-xl border border-gold/30 bg-popover p-4 shadow-xl">
                   <p className="font-heading text-sm italic leading-snug text-foreground">
-                    &quot;Voltar nesse protocolo antes de atender amanhã&quot;
+                    &quot;Fazer esse checklist antes de todo atendimento&quot;
                   </p>
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     sua anotação · agora
@@ -215,8 +223,15 @@ export default async function Home() {
         <section id="sobre" className="border-b border-border/60 px-6 py-24">
           <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[0.85fr_1.15fr]">
             <div className="relative mx-auto w-full max-w-xs">
-              <div className="flex aspect-square w-full items-center justify-center rounded-3xl border border-border/60 bg-linear-to-br from-rose/15 to-gold/15">
-                <User className="size-16 text-gold/70" />
+              <div className="relative aspect-3/4 w-full overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-rose/15 to-gold/15">
+                <Image
+                  src="/assets/foto_dra_site.jpeg"
+                  alt="Dra. Nathalia Fialho"
+                  fill
+                  sizes="(min-width: 1024px) 320px, 80vw"
+                  className="object-cover object-top"
+                  priority
+                />
               </div>
             </div>
             <div>
@@ -251,7 +266,9 @@ export default async function Home() {
               {features.map((feature, index) => (
                 <div
                   key={feature.title}
-                  className="flex items-start gap-6 border-border/60 py-8 md:border-t"
+                  className={`flex items-start gap-6 border-border/60 py-8 md:border-t ${
+                    feature.comingSoon ? "md:col-span-2" : ""
+                  }`}
                 >
                   <span className="font-heading text-3xl italic text-gold/70">
                     {String(index + 1).padStart(2, "0")}
@@ -262,8 +279,13 @@ export default async function Home() {
                       <h3 className="font-heading text-lg text-foreground">
                         {feature.title}
                       </h3>
+                      {feature.comingSoon && (
+                        <span className="rounded-full border border-gold/40 px-2 py-0.5 text-[10px] font-medium tracking-wide text-gold uppercase">
+                          Em breve
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
+                    <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
                       {feature.description}
                     </p>
                   </div>
@@ -407,7 +429,8 @@ export default async function Home() {
               <div className="space-y-3 p-4">
                 <div className="flex justify-end">
                   <div className="max-w-[80%] rounded-2xl bg-rose px-4 py-2.5 text-sm text-rose-foreground">
-                    Como sequencio microagulhamento após peeling?
+                    Posso fazer esse peeling junto com o microagulhamento no
+                    mesmo dia?
                   </div>
                 </div>
                 <div className="flex justify-start">
