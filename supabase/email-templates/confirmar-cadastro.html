@@ -1,0 +1,111 @@
+<!--
+  Template do e-mail "Confirm signup" do Supabase, em português e na cara da
+  marca. Não roda em lugar nenhum do app — cola no painel:
+  Authentication → Emails → Confirm signup → Message body (HTML editor).
+  Lembre de trocar o Subject para algo como "Confirme seu cadastro — Manual NF".
+
+  Mesma estrutura do redefinir-senha.html (tabela + estilo inline + fundo
+  claro), pelos mesmos motivos: é o que sobrevive a Outlook/Gmail e não depende
+  do dark mode de cada cliente.
+
+  Variáveis do Supabase usadas: {{ .ConfirmationURL }}
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Confirme seu cadastro</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f4efe9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4efe9; padding:40px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background-color:#ffffff; border-radius:16px; border:1px solid #e8dfd3; overflow:hidden;">
+
+            <!-- Cabeçalho: marca -->
+            <tr>
+              <td align="center" style="padding:36px 40px 0;">
+                <img
+                  src="https://www.manualnf.com.br/brand/icone-192.png"
+                  width="44"
+                  height="44"
+                  alt="Manual NF"
+                  style="display:block; border-radius:10px;"
+                />
+                <div style="margin-top:14px; font-size:13px; letter-spacing:0.14em; font-weight:600; color:#a8763f; text-transform:uppercase;">
+                  Manual NF
+                </div>
+              </td>
+            </tr>
+
+            <!-- Corpo -->
+            <tr>
+              <td style="padding:28px 40px 8px;">
+                <h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; color:#241a14; text-align:center;">
+                  Bem-vinda ao Manual NF
+                </h1>
+                <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#5a4d42; text-align:center;">
+                  Falta só confirmar seu e-mail pra ativar a conta e acessar a
+                  sua área de estudos. É só clicar no botão abaixo.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Botão -->
+            <tr>
+              <td align="center" style="padding:0 40px 8px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td align="center" style="border-radius:10px; background-color:#d46a8a;">
+                      <a
+                        href="{{ .ConfirmationURL }}"
+                        style="display:inline-block; padding:13px 32px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:10px;"
+                      >
+                        Confirmar meu e-mail
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:20px 40px 0;">
+                <p style="margin:0; font-size:13px; line-height:1.6; color:#8c7e70; text-align:center;">
+                  Se não foi você que criou esta conta, pode ignorar este
+                  e-mail — nada será ativado sem essa confirmação.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Link alternativo, para quando o botão não renderiza -->
+            <tr>
+              <td style="padding:24px 40px 32px;">
+                <p style="margin:0 0 6px; font-size:12px; color:#a8998a; text-align:center;">
+                  Se o botão não funcionar, copie e cole este link:
+                </p>
+                <p style="margin:0; font-size:12px; color:#a8763f; text-align:center; word-break:break-all;">
+                  {{ .ConfirmationURL }}
+                </p>
+              </td>
+            </tr>
+
+            <!-- Rodapé -->
+            <tr>
+              <td style="padding:18px 40px; background-color:#faf6f0; border-top:1px solid #e8dfd3;">
+                <p style="margin:0; font-size:12px; line-height:1.5; color:#a8998a; text-align:center;">
+                  Manual NF · Dra. Nathalia Fialho<br />
+                  Materiais de estudo em estética profissional
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
