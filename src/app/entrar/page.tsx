@@ -58,7 +58,15 @@ export default function EntrarPage() {
           <Input id="email" name="email" type="email" placeholder="voce@email.com" required />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="password">Senha</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Senha</Label>
+            <Link
+              href="/esqueci-senha"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Esqueceu a senha?
+            </Link>
+          </div>
           <PasswordInput id="password" name="password" placeholder="••••••••" required />
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
