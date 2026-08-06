@@ -29,7 +29,7 @@ export default function TermosPage() {
                 Estes Termos de Uso regem o acesso e uso da plataforma Manual
                 NF (&quot;plataforma&quot;), operada por{" "}
                 <span className="text-foreground">
-                  [razão social / CPF ou CNPJ da Dra. Nathalia]
+                  Nathalia Fialho de Jesus Dias Ferreira, CPF 181.368.327-14
                 </span>{" "}
                 (&quot;Manual NF&quot;, &quot;nós&quot;). Ao criar uma conta
                 ou usar a plataforma, você concorda com estes termos e com a
@@ -161,7 +161,13 @@ export default function TermosPage() {
               <h2 className="mb-2 font-heading text-lg text-foreground">11. Contato</h2>
               <p>
                 Dúvidas sobre estes termos podem ser enviadas para{" "}
-                <span className="text-foreground">[e-mail de contato]</span>.
+                <a
+                  href="mailto:contato@manualnf.com.br"
+                  className="text-rose hover:underline"
+                >
+                  contato@manualnf.com.br
+                </a>
+                .
               </p>
             </section>
           </div>

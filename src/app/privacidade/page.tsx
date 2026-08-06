@@ -39,7 +39,7 @@ export default function PrivacidadePage() {
               <p>
                 O Manual NF, operado por{" "}
                 <span className="text-foreground">
-                  [razão social / CPF ou CNPJ da Dra. Nathalia]
+                  Nathalia Fialho de Jesus Dias Ferreira, CPF 181.368.327-14
                 </span>
                 , é a controladora dos dados pessoais tratados nesta
                 plataforma.
@@ -118,7 +118,13 @@ export default function PrivacidadePage() {
               <p className="mt-2">
                 Para exercer qualquer um desses direitos, entre em contato
                 pelo e-mail{" "}
-                <span className="text-foreground">[e-mail de contato]</span>.
+                <a
+                  href="mailto:contato@manualnf.com.br"
+                  className="text-rose hover:underline"
+                >
+                  contato@manualnf.com.br
+                </a>
+                .
               </p>
             </section>
 
@@ -159,7 +165,13 @@ export default function PrivacidadePage() {
               <p>
                 Dúvidas sobre esta política ou sobre o tratamento dos seus
                 dados podem ser enviadas para{" "}
-                <span className="text-foreground">[e-mail de contato]</span>.
+                <a
+                  href="mailto:contato@manualnf.com.br"
+                  className="text-rose hover:underline"
+                >
+                  contato@manualnf.com.br
+                </a>
+                .
               </p>
             </section>
           </div>
