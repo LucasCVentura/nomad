@@ -4,6 +4,13 @@ import { CheckCircle2, Clock, ExternalLink, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { PendingOrdersRefresher } from "@/components/pending-orders-refresher";
+import { RefundRequestButton } from "@/components/refund-request-button";
+
+// Prazo do direito de arrependimento (CDC, Termos de Uso seção 5). Passado
+// isso o pedido não é bloqueado — a cláusula fala em "acesso substancial",
+// que é julgamento da Dra., não uma regra automática — só deixa de ser
+// garantido por lei, e o botão avisa isso em vez de simplesmente sumir.
+const REFUND_WINDOW_DAYS = 7;
 
 // Pix cai em segundos, boleto pode levar dias — então esta tela não promete
 // nada que ainda não aconteceu. Enquanto o webhook não confirma, o pedido
@@ -34,6 +41,12 @@ const STATUS = {
     icon: XCircle,
     className: "text-muted-foreground",
   },
+  refund_requested: {
+    label: "Reembolso solicitado",
+    hint: "Sua solicitação está em análise. A Dra. Nathalia vai entrar em contato.",
+    icon: Clock,
+    className: "text-gold",
+  },
 } as const;
 
 function formatCurrency(value: number) {
@@ -52,7 +65,9 @@ export default async function PedidosPage() {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, status, total, invoice_url, created_at, order_items(price, contents(title))")
+    .select(
+      "id, status, total, invoice_url, created_at, paid_at, refund_requested_at, order_items(price, contents(title))"
+    )
     .order("created_at", { ascending: false });
 
   const rows = orders ?? [];
@@ -85,7 +100,14 @@ export default async function PedidosPage() {
       ) : (
         <div className="mt-6 space-y-3">
           {rows.map((order) => {
-            const status = STATUS[order.status as keyof typeof STATUS] ?? STATUS.pending;
+            const refundable = order.status === "paid" && !order.refund_requested_at;
+            const statusKey =
+              order.status === "paid" && order.refund_requested_at ? "refund_requested" : order.status;
+            const status = STATUS[statusKey as keyof typeof STATUS] ?? STATUS.pending;
+            const daysSincePaid = order.paid_at
+              ? Math.floor((Date.now() - new Date(order.paid_at).getTime()) / 86_400_000)
+              : null;
+            const withinWindow = daysSincePaid !== null && daysSincePaid <= REFUND_WINDOW_DAYS;
             return (
               <div
                 key={order.id}
@@ -125,6 +147,9 @@ export default async function PedidosPage() {
                       Pagar agora
                       <ExternalLink className="size-3.5" />
                     </a>
+                  )}
+                  {refundable && (
+                    <RefundRequestButton orderId={order.id} withinWindow={withinWindow} />
                   )}
                 </div>
               </div>

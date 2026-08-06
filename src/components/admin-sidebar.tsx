@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileStack, Users, MessageCircle, Star } from "lucide-react";
+import { LayoutDashboard, FileStack, Users, MessageCircle, Star, Receipt } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import { useAdminUnreadTotal } from "@/lib/use-admin-unread-total";
@@ -11,6 +11,7 @@ const items = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/conteudos", label: "Conteúdos", icon: FileStack },
   { href: "/admin/alunos", label: "Alunos", icon: Users },
+  { href: "/admin/pedidos", label: "Pedidos", icon: Receipt },
   { href: "/admin/comunidade", label: "Chat", icon: MessageCircle },
   { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
 ];

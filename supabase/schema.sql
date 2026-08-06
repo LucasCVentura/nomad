@@ -247,7 +247,12 @@ create table if not exists public.orders (
   total numeric(10, 2) not null,
   invoice_url text,
   created_at timestamptz not null default now(),
-  paid_at timestamptz
+  paid_at timestamptz,
+  -- Pedido de reembolso (direito de arrependimento do CDC, Termos seção 5).
+  -- Só registra o pedido; quem aprova e efetiva é a Dra., na mão, no painel
+  -- da Asaas — a cláusula fala em "acesso substancial", que não dá pra
+  -- automatizar.
+  refund_requested_at timestamptz
 );
 
 create index if not exists orders_user_id_idx on public.orders (user_id);
@@ -267,13 +272,25 @@ create index if not exists order_items_order_id_idx on public.order_items (order
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
--- Leitura apenas: a aluna acompanha os próprios pedidos, a admin vê todos.
--- Não há policy de insert/update/delete de propósito — pedido só nasce e muda
--- pelo servidor (service role), nunca pelo navegador, senão o pagamento seria
+-- Leitura: a aluna acompanha os próprios pedidos, a admin vê todos. Sem
+-- policy de insert/delete de propósito — pedido só nasce e é apagado pelo
+-- servidor (service role), nunca pelo navegador, senão o pagamento seria
 -- contornável do mesmo jeito que o checkout antigo era.
 create policy "Users see own orders, admin sees all"
   on public.orders for select
   using (auth.uid() = user_id or public.is_admin());
+
+-- A única escrita que o navegador pode fazer em orders: pedir reembolso do
+-- próprio pedido pago. O grant de coluna logo abaixo é quem impede isso de
+-- virar "reescrever o total" — sem ele, todo UPDATE que a policy libera
+-- valeria para qualquer coluna.
+revoke update on public.orders from anon, authenticated;
+grant update (refund_requested_at) on public.orders to authenticated;
+
+create policy "Users can request a refund on their own paid order"
+  on public.orders for update
+  using (auth.uid() = user_id and status = 'paid')
+  with check (auth.uid() = user_id and status = 'paid');
 
 create policy "Users see own order items, admin sees all"
   on public.order_items for select

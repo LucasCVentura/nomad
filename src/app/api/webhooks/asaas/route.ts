@@ -64,9 +64,30 @@ export async function POST(request: Request) {
       .from("orders")
       .update({ status: event === "PAYMENT_REFUNDED" ? "refunded" : "canceled" })
       .eq("id", order.id);
-    // O acesso já concedido não é revogado automaticamente: estorno costuma
-    // vir com conversa, e tirar o curso de alguém é decisão da Dra., que pode
-    // fazer isso pelo painel de alunas.
+
+    // Só PAYMENT_REFUNDED tira o acesso — é o único dos três que confirma
+    // dinheiro de volta de verdade. PAYMENT_DELETED é uma cobrança desfeita
+    // antes de pagar (não chegou a dar acesso, nada para revogar), e
+    // PAYMENT_CHARGEBACK_REQUESTED é só um pedido de contestação, que ainda
+    // pode ser resolvido a favor da venda — revogar nesse ponto seria cedo
+    // demais.
+    if (event === "PAYMENT_REFUNDED") {
+      const { data: items } = await admin
+        .from("order_items")
+        .select("content_id")
+        .eq("order_id", order.id);
+      if (items && items.length > 0) {
+        await admin
+          .from("purchases")
+          .delete()
+          .eq("user_id", order.user_id)
+          .in(
+            "content_id",
+            items.map((item) => item.content_id)
+          );
+      }
+    }
+
     return NextResponse.json({ ok: true });
   }
 

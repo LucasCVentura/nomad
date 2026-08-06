@@ -253,6 +253,7 @@ export type Database = {
           id: string
           invoice_url: string | null
           paid_at: string | null
+          refund_requested_at: string | null
           status: string
           total: number
           user_id: string
@@ -263,6 +264,7 @@ export type Database = {
           id?: string
           invoice_url?: string | null
           paid_at?: string | null
+          refund_requested_at?: string | null
           status?: string
           total: number
           user_id: string
@@ -273,6 +275,7 @@ export type Database = {
           id?: string
           invoice_url?: string | null
           paid_at?: string | null
+          refund_requested_at?: string | null
           status?: string
           total?: number
           user_id?: string

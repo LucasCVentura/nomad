@@ -10,7 +10,7 @@ const items = [
   { href: "/app", label: "Meus conteúdos", icon: LayoutGrid },
   { href: "/app/loja", label: "Loja", icon: ShoppingBag },
   { href: "/app/pedidos", label: "Meus pedidos", icon: Receipt },
-  { href: "#", label: "Configurações", icon: Settings2, soon: true },
+  { href: "/app/conta", label: "Configurações", icon: Settings2 },
 ];
 
 export function AppSidebar() {
@@ -29,22 +29,15 @@ export function AppSidebar() {
             <Link
               key={item.label}
               href={item.href}
-              aria-disabled={item.soon}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                 active
                   ? "bg-rose/15 text-rose"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                item.soon && "pointer-events-none opacity-40"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <span className="flex items-center gap-3">
-                <item.icon className="size-4" />
-                {item.label}
-              </span>
-              {item.soon && (
-                <span className="text-[10px] tracking-wide uppercase">Em breve</span>
-              )}
+              <item.icon className="size-4" />
+              {item.label}
             </Link>
           );
         })}

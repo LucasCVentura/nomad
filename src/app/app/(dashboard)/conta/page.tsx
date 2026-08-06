@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, Receipt, ShoppingBag } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { AccountSettingsForm } from "@/components/account-settings-form";
 import { createClient } from "@/lib/supabase/server";
 
 function getInitials(name: string) {
@@ -22,7 +23,7 @@ export default async function ContaPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, email")
+    .select("name, email, cpf")
     .eq("id", session.user.id)
     .maybeSingle();
 
@@ -41,7 +42,9 @@ export default async function ContaPage() {
         </div>
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-2xl border border-border/60">
+      <AccountSettingsForm initialName={name} cpf={profile?.cpf ?? null} />
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-border/60">
         <Link
           href="/app/loja"
           className="flex items-center justify-between gap-3 px-4 py-3.5 text-sm text-foreground hover:bg-muted"
