@@ -3,12 +3,11 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
-> **Status (05/08/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6, 8 e 9. O
-> pagamento está em **produção**, verificado com uma cobrança real por Pix:
-> caiu na conta da Asaas e o acesso ao conteúdo foi liberado automaticamente
-> pelo webhook. Domínio próprio (`www.manualnf.com.br`) também já está no ar.
-> Só resta o item **7** (recuperação de senha), que o domínio novo já
-> desbloqueia — ver a seção dele.
+> **Status (06/08/2026):** todos os itens críticos e menores resolvidos —
+> 1, 2a, 3, 4, 5, 6, 7, 8 e 9. O pagamento está em **produção**, verificado
+> com uma cobrança real por Pix. Domínio próprio (`www.manualnf.com.br`) no
+> ar, com SMTP próprio (Resend) e recuperação de senha funcionando ponta a
+> ponta. Não há pendências abertas neste arquivo no momento.
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -281,18 +280,37 @@ decorativo sobre um card que inteiro já é link.
 
 ### 7. Não existe recuperação de senha
 
-- [ ] Implementar "esqueci minha senha"
+- [x] ~~Implementar "esqueci minha senha"~~ — **resolvido em 06/08/2026**
 
-Não há nenhuma tela nem chamada de `resetPasswordForEmail` no projeto. Se uma
-aluna esquecer a senha, não há saída pela interface. Já estava listado como
-pendência no resumo entregue à Dra.
+> **Verificado:** pedido de reset em produção, e-mail chegou de
+> `contato@manualnf.com.br` com o template em português, link levou pra
+> `/redefinir-senha` e a senha nova funcionou pra logar.
 
-**Desbloqueado em 05/08/2026**: o domínio `www.manualnf.com.br` já está no
-ar, que era o motivo de estar parado (precisava de um remetente de e-mail
-próprio). Falta implementar a tela e, no Supabase, configurar Authentication
-→ URL Configuration → Site URL para o domínio novo, e opcionalmente um SMTP
-próprio (Resend/SendGrid) em Authentication → Emails para o e-mail não sair
-do remetente genérico do Supabase.
+Não havia nenhuma tela nem chamada de `resetPasswordForEmail` no projeto —
+se uma aluna esquecesse a senha, não tinha saída pela interface.
+
+**Como foi fechado:** três telas novas — `/entrar` ganhou o link "Esqueceu
+a senha?"; `/esqueci-senha` pede o e-mail (mostra sempre a mesma confirmação,
+já que a própria API do Supabase não revela se o e-mail existe);
+`/redefinir-senha` é onde o link do e-mail cai, escutando o evento
+`PASSWORD_RECOVERY` do client em vez de tentar interpretar a URL na mão —
+link expirado/usado cai numa tela própria em vez de travar num spinner.
+
+**Configuração feita fora do código, no painel do Supabase:**
+- Authentication → URL Configuration → Site URL e Redirect URLs, apontando
+  pro domínio novo (sem isso o link do e-mail cai na home, não na tela certa)
+- SMTP próprio via Resend, com `manualnf.com.br` verificado (DKIM/SPF/DMARC),
+  pra não sair mais pelo remetente genérico do Supabase
+- Template do e-mail em português — `supabase/email-templates/redefinir-senha.html`
+  colado em Authentication → Emails → Reset Password
+
+**Uma pegadinha real no caminho:** depois de salvar o SMTP e o template, o
+e-mail continuou chegando no padrão em inglês por vários minutos, mesmo com
+tudo confirmado salvo (sobreviveu a reload). Não era cache normal nem rate
+limit (esperamos passar dos 60s do limite por usuário, e não tinha nenhum
+Auth Hook de "Send Email" configurado desviando o envio). Só voltou a
+funcionar depois de **Project Settings → General → Restart project** —
+o serviço de Auth não estava pegando a configuração nova sozinho.
 
 ### 8. Nenhum limite de tamanho ou de páginas no PDF
 
