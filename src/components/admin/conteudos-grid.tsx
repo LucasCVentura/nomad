@@ -11,7 +11,7 @@ export type ConteudoRow = {
   title: string;
   category: string;
   price: number;
-  status: "draft" | "published";
+  status: "draft" | "published" | "coming_soon";
   coverImageUrl: string | null;
   format: string;
   pages: number | null;
@@ -22,13 +22,20 @@ function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-type StatusFilter = "todos" | "published" | "draft";
+type StatusFilter = "todos" | "published" | "coming_soon" | "draft";
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: "todos", label: "Todos" },
   { value: "published", label: "Publicados" },
+  { value: "coming_soon", label: "Em breve" },
   { value: "draft", label: "Rascunhos" },
 ];
+
+const STATUS_BADGE: Record<ConteudoRow["status"], { label: string; className: string }> = {
+  published: { label: "Publicado", className: "bg-rose/85 text-rose-foreground" },
+  coming_soon: { label: "Em breve", className: "bg-gold/85 text-background" },
+  draft: { label: "Rascunho", className: "bg-background/85 text-muted-foreground" },
+};
 
 export function ConteudosGrid({ rows }: { rows: ConteudoRow[] }) {
   const [query, setQuery] = useState("");
@@ -98,13 +105,9 @@ export function ConteudosGrid({ rows }: { rows: ConteudoRow[] }) {
                   <FileText className="size-8 text-gold" />
                 )}
                 <span
-                  className={`absolute top-3 right-3 rounded-full px-2.5 py-1 text-xs backdrop-blur ${
-                    item.status === "published"
-                      ? "bg-rose/85 text-rose-foreground"
-                      : "bg-background/85 text-muted-foreground"
-                  }`}
+                  className={`absolute top-3 right-3 rounded-full px-2.5 py-1 text-xs backdrop-blur ${STATUS_BADGE[item.status].className}`}
                 >
-                  {item.status === "published" ? "Publicado" : "Rascunho"}
+                  {STATUS_BADGE[item.status].label}
                 </span>
               </div>
 

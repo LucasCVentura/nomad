@@ -39,7 +39,7 @@ export type ContentBlock =
   // above are kept only so previously converted content keeps rendering.
   | { type: "page"; url: string; aspectRatio: number; textBlocks: PageTextBlock[] };
 
-export type ContentStatus = "draft" | "published";
+export type ContentStatus = "draft" | "published" | "coming_soon";
 
 export type ContentRow = Omit<
   Database["public"]["Tables"]["contents"]["Row"],

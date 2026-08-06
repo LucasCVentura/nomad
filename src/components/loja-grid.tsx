@@ -17,6 +17,7 @@ export type LojaItem = {
   description: string | null;
   purchased: boolean;
   coverImageUrl: string | null;
+  status: "published" | "coming_soon";
 };
 
 export function LojaGrid({ items }: { items: LojaItem[] }) {
@@ -103,37 +104,45 @@ export function LojaGrid({ items }: { items: LojaItem[] }) {
               {item.format} · {item.pages ?? "—"} páginas
             </p>
             <div className="mt-5 flex items-center justify-between">
-              <span className="font-heading text-xl text-foreground">
-                R$ {item.price.toFixed(2).replace(".", ",")}
-              </span>
-              {item.purchased ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href={`/app/ler/${item.slug}`} />}
-                  nativeButton={false}
-                >
-                  Já adquirido
-                </Button>
-              ) : cart.has(item.id) ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-rose text-rose"
-                  onClick={() => handleToggleCart(item)}
-                >
-                  <Check className="size-3.5" />
-                  No carrinho
-                </Button>
+              {item.status === "coming_soon" ? (
+                <span className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-medium text-gold">
+                  Em breve
+                </span>
               ) : (
-                <Button
-                  size="sm"
-                  className="bg-rose text-rose-foreground hover:bg-rose/90"
-                  onClick={() => handleToggleCart(item)}
-                >
-                  <ShoppingCart className="size-3.5" />
-                  Adicionar
-                </Button>
+                <>
+                  <span className="font-heading text-xl text-foreground">
+                    R$ {item.price.toFixed(2).replace(".", ",")}
+                  </span>
+                  {item.purchased ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      render={<Link href={`/app/ler/${item.slug}`} />}
+                      nativeButton={false}
+                    >
+                      Já adquirido
+                    </Button>
+                  ) : cart.has(item.id) ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-rose text-rose"
+                      onClick={() => handleToggleCart(item)}
+                    >
+                      <Check className="size-3.5" />
+                      No carrinho
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="bg-rose text-rose-foreground hover:bg-rose/90"
+                      onClick={() => handleToggleCart(item)}
+                    >
+                      <ShoppingCart className="size-3.5" />
+                      Adicionar
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -11,6 +11,10 @@ export type StoreContent = {
   price: number;
   description: string | null;
   coverImageUrl: string | null;
+  // "coming_soon" mostra capa/descrição na vitrine sem preço nem botão de
+  // compra — o checkout já só aceita "published", então isso nunca vira
+  // comprável por engano, mesmo chamando a API direto.
+  status: "published" | "coming_soon";
 };
 
 /**
@@ -28,7 +32,7 @@ export async function listStoreContents(
 ): Promise<StoreContent[]> {
   let query = supabase
     .from("store_contents")
-    .select("id, slug, title, category, format, pages, price, description, cover_image_url")
+    .select("id, slug, title, category, format, pages, price, description, cover_image_url, status")
     .order("created_at", { ascending: false });
 
   if (options?.limit) query = query.limit(options.limit);
@@ -49,5 +53,6 @@ export async function listStoreContents(
       price: Number(row.price),
       description: row.description,
       coverImageUrl: row.cover_image_url,
+      status: row.status === "coming_soon" ? "coming_soon" : "published",
     }));
 }

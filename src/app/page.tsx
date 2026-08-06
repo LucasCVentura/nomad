@@ -345,9 +345,15 @@ export default async function Home() {
                       {item.format} · {item.pages ?? "—"} páginas
                     </p>
                     <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-4">
-                      <span className="font-heading text-lg text-foreground">
-                        R$ {item.price.toFixed(2).replace(".", ",")}
-                      </span>
+                      {item.status === "coming_soon" ? (
+                        <span className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-medium text-gold">
+                          Em breve
+                        </span>
+                      ) : (
+                        <span className="font-heading text-lg text-foreground">
+                          R$ {item.price.toFixed(2).replace(".", ",")}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1 text-xs text-rose opacity-0 transition-opacity group-hover:opacity-100">
                         Ver na loja
                         <ArrowUpRight className="size-3.5" />

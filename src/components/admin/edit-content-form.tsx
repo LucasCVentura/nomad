@@ -39,7 +39,7 @@ export function EditContentForm({
     category: string;
     price: number;
     description: string;
-    status: "draft" | "published";
+    status: "draft" | "published" | "coming_soon";
     blocks: ContentBlock[];
     coverImageUrl: string | null;
   };
@@ -49,7 +49,7 @@ export function EditContentForm({
   const [category, setCategory] = useState(initial.category);
   const [price, setPrice] = useState(String(initial.price).replace(".", ","));
   const [description, setDescription] = useState(initial.description);
-  const [status, setStatus] = useState<"draft" | "published">(initial.status);
+  const [status, setStatus] = useState<"draft" | "published" | "coming_soon">(initial.status);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,10 +195,13 @@ export function EditContentForm({
             <select
               id="status"
               value={status}
-              onChange={(e) => setStatus(e.target.value as "draft" | "published")}
+              onChange={(e) =>
+                setStatus(e.target.value as "draft" | "published" | "coming_soon")
+              }
               className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
             >
               <option value="published">Publicado</option>
+              <option value="coming_soon">Em breve</option>
               <option value="draft">Rascunho</option>
             </select>
           </div>

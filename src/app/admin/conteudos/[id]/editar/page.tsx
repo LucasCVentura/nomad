@@ -53,7 +53,7 @@ export default async function EditarConteudoPage({
         category: content.category,
         price: content.price,
         description: content.description ?? "",
-        status: content.status as "draft" | "published",
+        status: content.status as "draft" | "published" | "coming_soon",
         blocks: content.body as ContentBlock[],
         coverImageUrl: content.cover_image_url,
       }}

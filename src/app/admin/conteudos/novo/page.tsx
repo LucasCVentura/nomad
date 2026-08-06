@@ -65,7 +65,7 @@ export default function NovoConteudoPage() {
     }
   }
 
-  async function handlePublish(status: "draft" | "published") {
+  async function handlePublish(status: "draft" | "published" | "coming_soon") {
     setStep("publishing");
     setError(null);
     try {
@@ -143,6 +143,13 @@ export default function NovoConteudoPage() {
             onClick={() => handlePublish("published")}
           >
             Publicar
+          </Button>
+          <Button
+            variant="outline"
+            className="border-gold/40 text-gold hover:bg-gold/10"
+            onClick={() => handlePublish("coming_soon")}
+          >
+            Marcar como &quot;Em breve&quot;
           </Button>
           <Button variant="outline" onClick={() => handlePublish("draft")}>
             Salvar como rascunho

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileStack, CheckCircle2, PenLine, Plus } from "lucide-react";
+import { FileStack, CheckCircle2, PenLine, Clock, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { ConteudosGrid, type ConteudoRow } from "@/components/admin/conteudos-grid";
@@ -25,7 +25,7 @@ export default async function AdminConteudosPage() {
     title: item.title,
     category: item.category,
     price: item.price,
-    status: item.status as "draft" | "published",
+    status: item.status as "draft" | "published" | "coming_soon",
     coverImageUrl: item.cover_image_url,
     format: item.format,
     pages: item.pages,
@@ -33,17 +33,19 @@ export default async function AdminConteudosPage() {
   }));
 
   const published = rows.filter((r) => r.status === "published").length;
-  const drafts = rows.length - published;
+  const comingSoon = rows.filter((r) => r.status === "coming_soon").length;
+  const drafts = rows.filter((r) => r.status === "draft").length;
 
   const stats = [
     { label: "Conteúdos no total", value: String(rows.length), icon: FileStack },
     { label: "Publicados", value: String(published), icon: CheckCircle2 },
+    { label: "Em breve", value: String(comingSoon), icon: Clock },
     { label: "Rascunhos", value: String(drafts), icon: PenLine },
   ];
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.label} className="rounded-2xl border border-border/60 bg-card p-5">
             <div className="mb-3 flex size-9 items-center justify-center rounded-lg bg-rose/15 text-rose">

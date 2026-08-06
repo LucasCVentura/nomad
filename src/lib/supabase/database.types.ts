@@ -408,6 +408,7 @@ export type Database = {
           pages: number | null
           price: number | null
           slug: string | null
+          status: string | null
           title: string | null
         }
         Insert: {

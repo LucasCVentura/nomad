@@ -75,7 +75,7 @@ create table if not exists public.contents (
   pages integer,
   price numeric(10, 2) not null default 0,
   description text,
-  status text not null default 'draft' check (status in ('draft', 'published')),
+  status text not null default 'draft' check (status in ('draft', 'published', 'coming_soon')),
   body jsonb not null default '[]'::jsonb,
   cover_image_url text,
   created_at timestamptz not null default now(),
@@ -132,9 +132,10 @@ select
   price,
   description,
   cover_image_url,
-  created_at
+  created_at,
+  status
 from public.contents
-where status = 'published';
+where status in ('published', 'coming_soon');
 
 grant select on public.store_contents to anon, authenticated;
 

@@ -55,7 +55,7 @@ export default async function AppPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <KiraBanner />
+      {items.length > 0 && <KiraBanner />}
 
       <p className="text-sm text-muted-foreground">
         Bem-vinda de volta. Você tem {items.length} conteúdos na sua área de
