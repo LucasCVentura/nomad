@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Jost, Oswald, Roboto } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { CartProvider } from "@/lib/cart-context";
 import { CartDrawer } from "@/components/cart-drawer";
 import "./globals.css";
@@ -64,6 +65,7 @@ export default function RootLayout({
           {children}
           <CartDrawer />
         </CartProvider>
+        <Analytics />
       </body>
     </html>
   );
