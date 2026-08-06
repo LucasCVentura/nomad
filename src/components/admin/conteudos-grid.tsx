@@ -9,7 +9,6 @@ export type ConteudoRow = {
   id: string;
   slug: string;
   title: string;
-  category: string;
   price: number;
   status: "draft" | "published" | "coming_soon";
   coverImageUrl: string | null;
@@ -45,8 +44,7 @@ export function ConteudosGrid({ rows }: { rows: ConteudoRow[] }) {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
       if (status !== "todos" && r.status !== status) return false;
-      if (q && !r.title.toLowerCase().includes(q) && !r.category.toLowerCase().includes(q))
-        return false;
+      if (q && !r.title.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [rows, query, status]);
@@ -112,10 +110,7 @@ export function ConteudosGrid({ rows }: { rows: ConteudoRow[] }) {
               </div>
 
               <div className="flex flex-1 flex-col p-5">
-                <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-                  {item.category}
-                </span>
-                <h3 className="mt-1.5 line-clamp-2 font-heading text-base leading-snug text-foreground">
+                <h3 className="line-clamp-2 font-heading text-base leading-snug text-foreground">
                   {item.title}
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">

@@ -22,7 +22,7 @@ export default async function AppPage() {
     supabase
       .from("purchases")
       .select(
-        "progress, completed_at, updated_seen_at, contents(id, slug, title, category, cover_image_url, updated_at)"
+        "progress, completed_at, updated_seen_at, contents(id, slug, title, cover_image_url, updated_at)"
       )
       .eq("user_id", session.user.id)
       .order("purchased_at", { ascending: false }),
@@ -85,10 +85,7 @@ export default async function AppPage() {
                   <FileText className="size-8 text-gold" />
                 )}
               </div>
-              <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-                {content.category}
-              </span>
-              <h3 className="mt-1.5 font-heading text-lg leading-snug text-foreground">
+              <h3 className="font-heading text-lg leading-snug text-foreground">
                 {content.title}
               </h3>
               {contentHasReply.has(content.id) && (

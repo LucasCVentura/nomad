@@ -5,7 +5,6 @@ export type AdminInboxRow = {
   id: string;
   studentName: string;
   contentTitle: string;
-  category: string;
   lastMessageBody: string | null;
   lastMessageAt: string | null;
   unread: number;
@@ -21,7 +20,6 @@ export async function getAdminInboxRows(supabase: SupabaseClient<Database>): Pro
     id: r.id,
     studentName: r.student_name ?? "Aluna",
     contentTitle: r.content_title ?? "",
-    category: r.category ?? "",
     lastMessageBody: r.last_message_body,
     lastMessageAt: r.last_message_at,
     unread: r.unread ?? 0,

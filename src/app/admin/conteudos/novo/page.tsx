@@ -32,7 +32,6 @@ export default function NovoConteudoPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [blocks, setBlocks] = useState<EditableBlock[]>([]);
@@ -89,7 +88,6 @@ export default function NovoConteudoPage() {
       const { error: insertError } = await supabase.from("contents").insert({
         slug,
         title,
-        category,
         price: Number(price.replace(",", ".")) || 0,
         description,
         status,
@@ -203,27 +201,15 @@ export default function NovoConteudoPage() {
             />
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="category">Categoria</Label>
-              <Input
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Ex: Harmonização Facial"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="price">Preço (R$)</Label>
-              <Input
-                id="price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="79,90"
-                required
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="price">Preço (R$)</Label>
+            <Input
+              id="price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="79,90"
+              required
+            />
           </div>
 
           <div className="space-y-1.5">

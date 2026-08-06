@@ -23,7 +23,7 @@ export default async function AdminConversationPage({
 
   const { data: conversation } = await supabase
     .from("conversations")
-    .select("id, content_id, profiles(name), contents(title, category)")
+    .select("id, content_id, profiles(name), contents(title)")
     .eq("id", conversationId)
     .maybeSingle();
 
@@ -63,10 +63,7 @@ export default async function AdminConversationPage({
           </AvatarFallback>
         </Avatar>
         <div>
-          <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-            {conversation.contents?.category}
-          </span>
-          <h1 className="mt-0.5 font-heading text-2xl text-foreground">{studentName}</h1>
+          <h1 className="font-heading text-2xl text-foreground">{studentName}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{conversation.contents?.title}</p>
         </div>
       </div>

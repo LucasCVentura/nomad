@@ -335,10 +335,7 @@ export default async function Home() {
                     )}
                   </div>
                   <div className="flex flex-1 flex-col p-5">
-                    <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-                      {item.category}
-                    </span>
-                    <h3 className="mt-1.5 font-heading text-lg leading-snug text-foreground">
+                    <h3 className="font-heading text-lg leading-snug text-foreground">
                       {item.title}
                     </h3>
                     <p className="mt-1 text-xs text-muted-foreground">

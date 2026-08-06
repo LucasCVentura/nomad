@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, FileText, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,6 @@ export type LojaItem = {
   id: string;
   slug: string;
   title: string;
-  category: string;
   format: string;
   pages: number | null;
   price: number;
@@ -22,15 +20,6 @@ export type LojaItem = {
 
 export function LojaGrid({ items }: { items: LojaItem[] }) {
   const cart = useCart();
-  const [active, setActive] = useState("Todos");
-
-  const categories = useMemo(
-    () => ["Todos", ...Array.from(new Set(items.map((i) => i.category)))],
-    [items]
-  );
-
-  const filtered =
-    active === "Todos" ? items : items.filter((item) => item.category === active);
 
   function handleToggleCart(item: LojaItem) {
     if (cart.has(item.id)) {
@@ -57,24 +46,8 @@ export function LojaGrid({ items }: { items: LojaItem[] }) {
 
   return (
     <>
-      <div className="mt-10 flex flex-wrap gap-2">
-        {categories.map((category) => (
-          <button
-            key={category}
-            onClick={() => setActive(category)}
-            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-              active === category
-                ? "border-rose bg-rose/15 text-rose"
-                : "border-border/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-            }`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((item) => (
+        {items.map((item) => (
           <div
             key={item.slug}
             className="flex flex-col rounded-2xl border border-border/60 bg-card p-5"
@@ -91,12 +64,7 @@ export function LojaGrid({ items }: { items: LojaItem[] }) {
                 <FileText className="size-8 text-gold" />
               )}
             </div>
-            <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-              {item.category}
-            </span>
-            <h3 className="mt-1.5 font-heading text-lg leading-snug text-foreground">
-              {item.title}
-            </h3>
+            <h3 className="font-heading text-lg leading-snug text-foreground">{item.title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {item.description}
             </p>

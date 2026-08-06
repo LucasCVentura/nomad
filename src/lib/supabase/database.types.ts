@@ -70,7 +70,7 @@ export type Database = {
       contents: {
         Row: {
           body: Json
-          category: string
+          category: string | null
           cover_image_url: string | null
           created_at: string
           description: string | null
@@ -85,7 +85,7 @@ export type Database = {
         }
         Insert: {
           body?: Json
-          category: string
+          category?: string | null
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
@@ -100,7 +100,7 @@ export type Database = {
         }
         Update: {
           body?: Json
-          category?: string
+          category?: string | null
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
@@ -448,7 +448,6 @@ export type Database = {
           id: string
           student_name: string
           content_title: string
-          category: string
           last_message_body: string | null
           last_message_at: string | null
           unread: number

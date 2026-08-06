@@ -5,7 +5,6 @@ export type StoreContent = {
   id: string;
   slug: string;
   title: string;
-  category: string;
   format: string;
   pages: number | null;
   price: number;
@@ -32,7 +31,7 @@ export async function listStoreContents(
 ): Promise<StoreContent[]> {
   let query = supabase
     .from("store_contents")
-    .select("id, slug, title, category, format, pages, price, description, cover_image_url, status")
+    .select("id, slug, title, format, pages, price, description, cover_image_url, status")
     .order("created_at", { ascending: false });
 
   if (options?.limit) query = query.limit(options.limit);
@@ -47,7 +46,6 @@ export async function listStoreContents(
       id: row.id!,
       slug: row.slug!,
       title: row.title!,
-      category: row.category ?? "",
       format: row.format ?? "PDF",
       pages: row.pages,
       price: Number(row.price),

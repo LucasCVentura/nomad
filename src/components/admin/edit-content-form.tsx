@@ -35,7 +35,6 @@ export function EditContentForm({
   previewUrls?: Record<string, string>;
   initial: {
     title: string;
-    category: string;
     price: number;
     description: string;
     status: "draft" | "published" | "coming_soon";
@@ -45,7 +44,6 @@ export function EditContentForm({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
-  const [category, setCategory] = useState(initial.category);
   const [price, setPrice] = useState(String(initial.price).replace(".", ","));
   const [description, setDescription] = useState(initial.description);
   const [status, setStatus] = useState<"draft" | "published" | "coming_soon">(initial.status);
@@ -161,7 +159,6 @@ export function EditContentForm({
         .from("contents")
         .update({
           title,
-          category,
           price: Number(price.replace(",", ".")) || 0,
           description,
           status,
@@ -203,16 +200,7 @@ export function EditContentForm({
           <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="category">Categoria</Label>
-            <Input
-              id="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              required
-            />
-          </div>
+        <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="price">Preço (R$)</Label>
             <Input id="price" value={price} onChange={(e) => setPrice(e.target.value)} required />

@@ -14,7 +14,7 @@ export default async function EditarConteudoPage({
 
   const { data: content } = await supabase
     .from("contents")
-    .select("id, slug, title, category, price, description, status, body, cover_image_url")
+    .select("id, slug, title, price, description, status, body, cover_image_url")
     .eq("id", id)
     .maybeSingle();
 
@@ -50,7 +50,6 @@ export default async function EditarConteudoPage({
       previewUrls={previewUrls}
       initial={{
         title: content.title,
-        category: content.category,
         price: content.price,
         description: content.description ?? "",
         status: content.status as "draft" | "published" | "coming_soon",

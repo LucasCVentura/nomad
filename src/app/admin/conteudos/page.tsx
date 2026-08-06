@@ -9,7 +9,7 @@ export default async function AdminConteudosPage() {
   const [{ data: contents }, { data: purchases }] = await Promise.all([
     supabase
       .from("contents")
-      .select("id, slug, title, category, price, status, cover_image_url, format, pages, created_at")
+      .select("id, slug, title, price, status, cover_image_url, format, pages, created_at")
       .order("created_at", { ascending: false }),
     supabase.from("purchases").select("content_id"),
   ]);
@@ -23,7 +23,6 @@ export default async function AdminConteudosPage() {
     id: item.id,
     slug: item.slug,
     title: item.title,
-    category: item.category,
     price: item.price,
     status: item.status as "draft" | "published" | "coming_soon",
     coverImageUrl: item.cover_image_url,

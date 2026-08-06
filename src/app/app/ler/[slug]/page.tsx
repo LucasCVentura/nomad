@@ -26,7 +26,7 @@ export default async function LerPage({
     { data: row },
   ] = await Promise.all([
     supabase.auth.getSession(),
-    supabase.from("contents").select("id, title, category, body").eq("slug", slug).maybeSingle(),
+    supabase.from("contents").select("id, title, body").eq("slug", slug).maybeSingle(),
   ]);
 
   if (!session) {
@@ -157,7 +157,7 @@ export default async function LerPage({
 
   return (
     <ReaderView
-      content={{ title: row.title, category: row.category }}
+      content={{ title: row.title }}
       blocks={blocks}
       contentId={row.id}
       backHref={backHref}

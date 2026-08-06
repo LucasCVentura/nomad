@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 export type StudentAccessItem = {
   contentId: string;
   title: string;
-  category: string;
   price: number;
   purchased: boolean;
   progress: number | null;
@@ -64,10 +63,7 @@ export function StudentAccessList({
           className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-card p-5"
         >
           <div className="min-w-0">
-            <span className="text-[11px] font-medium tracking-wide text-gold uppercase">
-              {item.category}
-            </span>
-            <p className="mt-1 truncate text-sm text-foreground">{item.title}</p>
+            <p className="truncate text-sm text-foreground">{item.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {formatCurrency(item.price)}
               {item.purchased && item.progress !== null && ` · ${item.progress}% concluído`}

@@ -70,7 +70,10 @@ create table if not exists public.contents (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,
   title text not null,
-  category text not null,
+  -- Não é mais coletada nem exibida (decisão de produto — a Dra. não usa
+  -- categorização) — nullable pra não obrigar valor num campo que não existe
+  -- mais na interface. Os conteúdos criados antes mantêm o que já tinham.
+  category text,
   format text not null default 'PDF',
   pages integer,
   price numeric(10, 2) not null default 0,

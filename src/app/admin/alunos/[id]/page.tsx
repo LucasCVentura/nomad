@@ -17,7 +17,7 @@ export default async function AdminStudentPage({
       supabase.from("profiles").select("id, name, email, created_at").eq("id", id).maybeSingle(),
       supabase
         .from("contents")
-        .select("id, title, category, price")
+        .select("id, title, price")
         .eq("status", "published")
         .order("title"),
       supabase.from("purchases").select("content_id, progress").eq("user_id", id),
@@ -36,7 +36,6 @@ export default async function AdminStudentPage({
     return {
       contentId: content.id,
       title: content.title,
-      category: content.category,
       price: content.price,
       purchased: Boolean(purchase),
       progress: purchase?.progress ?? null,
