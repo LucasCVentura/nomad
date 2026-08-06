@@ -53,13 +53,13 @@ create policy "Profiles are viewable by owner or admin"
   on public.profiles for select
   using (auth.uid() = id or public.is_admin());
 
--- Community posts show the author's name to every signed-in reader, not
--- just to the profile owner/admin — this policy is additive to the one
--- above (RLS policies are OR'd), it doesn't replace it.
-create policy "Signed-in users can view basic profile info"
-  on public.profiles for select
-  using (auth.uid() is not null);
-
+-- NÃO reintroduzir aqui uma policy do tipo `using (auth.uid() is not null)`.
+-- Existiu uma, de quando a "comunidade" era um fórum público e cada post
+-- mostrava o nome do autor. O fórum virou chat privado 1:1 e a policy ficou
+-- órfã — mas continuou liberando a LINHA INTEIRA de profiles para qualquer
+-- sessão autenticada, ou seja, e-mail, cpf e asaas_customer_id de todas as
+-- alunas (auditoria de 06/08/2026). RLS é por linha, não por coluna: se um
+-- dia for preciso expor só o nome, faça uma view com as colunas públicas.
 create policy "Only admin can update profiles"
   on public.profiles for update
   using (public.is_admin());
@@ -138,6 +138,14 @@ from public.contents
 where status in ('published', 'coming_soon');
 
 grant select on public.store_contents to anon, authenticated;
+
+-- Só SELECT, e o revoke abaixo é obrigatório, não zelo excessivo: esta view é
+-- simples, então o Postgres a torna AUTO-ATUALIZÁVEL, e como ela roda com o
+-- privilégio do dono (security_invoker = false) um INSERT/UPDATE/DELETE nela
+-- vira escrita em `contents` por cima da RLS. Auditoria de 06/08/2026: sem
+-- login algum dava para criar produto na loja, alterar preço e apagar curso.
+revoke insert, update, delete, truncate, references
+  on public.store_contents from anon, authenticated;
 
 -- Purchases -----------------------------------------------------------------
 create table if not exists public.purchases (
@@ -295,10 +303,14 @@ create index if not exists annotations_user_content_idx
 
 alter table public.annotations enable row level security;
 
+-- USING só na posse, para ela sempre conseguir ler e apagar as próprias
+-- anotações mesmo que perca o acesso ao conteúdo depois; a checagem de acesso
+-- fica no WITH CHECK, que governa INSERT/UPDATE — sem ela dava para gravar
+-- anotação apontando para qualquer conteúdo, comprado ou não.
 create policy "Users manage their own annotations"
   on public.annotations for all
   using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  with check (auth.uid() = user_id and public.has_content_access(content_id));
 
 -- Storage ---------------------------------------------------------------------
 -- content-images: imagens extraídas dos PDFs e capas de curso, públicas
