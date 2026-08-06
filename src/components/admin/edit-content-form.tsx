@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,6 @@ import {
 } from "@/lib/content-media";
 import { convertPdfToBlocks } from "@/lib/pdf-convert";
 import { createClient } from "@/lib/supabase/client";
-import { CONTENT_CATEGORIES } from "@/lib/categories";
 import type { ContentBlock } from "@/lib/supabase/types";
 
 export function EditContentForm({
@@ -75,6 +74,7 @@ export function EditContentForm({
   const [videos, setVideos] = useState<VideoAttachment[]>(initialSplit.videoAttachments);
   const [reconverting, setReconverting] = useState(false);
   const [reconvertProgress, setReconvertProgress] = useState({ page: 0, total: 0 });
+  const [deleting, setDeleting] = useState(false);
 
   async function handleReconvert() {
     if (
@@ -107,6 +107,39 @@ export function EditContentForm({
       setError(`Não consegui reconverter o PDF (${detail}).`);
     } finally {
       setReconverting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (
+      !confirm(
+        "Excluir este conteúdo? Isso remove o material, as anotações e o histórico de chat das alunas que o tinham — não tem como desfazer.\n\nSe o conteúdo já teve alguma venda, a exclusão vai ser recusada (o histórico de pedidos precisa continuar intacto); nesse caso, mude o status para \"Rascunho\" em vez de excluir. Continuar?"
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { error: deleteError } = await supabase.from("contents").delete().eq("id", contentId);
+      if (deleteError) throw deleteError;
+
+      router.push("/admin/conteudos");
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      // 23503 = violação de chave estrangeira — order_items.content_id é
+      // "on delete restrict" de propósito, pra uma exclusão nunca apagar
+      // pedido/venda já registrado.
+      const isSalesLock =
+        typeof err === "object" && err !== null && "code" in err && err.code === "23503";
+      setError(
+        isSalesLock
+          ? "Não dá pra excluir: este conteúdo já tem venda registrada. Troque o status para \"Rascunho\" pra tirá-lo da loja sem perder o histórico."
+          : "Não consegui excluir. Tente de novo."
+      );
+      setDeleting(false);
     }
   }
 
@@ -173,18 +206,12 @@ export function EditContentForm({
         <div className="grid gap-5 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="category">Categoria</Label>
-            <select
+            <Input
               id="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
-            >
-              {CONTENT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="price">Preço (R$)</Label>
@@ -280,6 +307,25 @@ export function EditContentForm({
         >
           {saving ? "Salvando..." : "Salvar alterações"}
         </Button>
+
+        <div className="rounded-xl border border-destructive/30 p-4">
+          <p className="text-sm font-medium text-foreground">Excluir conteúdo</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Remove o material permanentemente, junto com anotações e chat das
+            alunas. Não é possível se já houver alguma venda registrada — use
+            &quot;Rascunho&quot; pra tirar da loja sem excluir.
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="mt-3"
+            disabled={deleting}
+            onClick={handleDelete}
+          >
+            <Trash2 className="size-3.5" />
+            {deleting ? "Excluindo..." : "Excluir conteúdo"}
+          </Button>
+        </div>
       </div>
     </div>
   );

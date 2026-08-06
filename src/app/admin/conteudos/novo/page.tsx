@@ -20,7 +20,6 @@ import {
 } from "@/lib/content-media";
 import { createClient } from "@/lib/supabase/client";
 import { slugify } from "@/lib/utils";
-import { CONTENT_CATEGORIES } from "@/lib/categories";
 
 type Step = "form" | "processing" | "review" | "publishing";
 
@@ -33,7 +32,7 @@ export default function NovoConteudoPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState(CONTENT_CATEGORIES[0]);
+  const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [blocks, setBlocks] = useState<EditableBlock[]>([]);
@@ -207,18 +206,13 @@ export default function NovoConteudoPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="category">Categoria</Label>
-              <select
+              <Input
                 id="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring"
-              >
-                {CONTENT_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                placeholder="Ex: Harmonização Facial"
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="price">Preço (R$)</Label>
