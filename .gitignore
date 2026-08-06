@@ -44,3 +44,8 @@ next-env.d.ts
 
 # fontes baixadas pelo gerador da marca
 scripts/.fonts/
+
+# Auditorias e playbook: mapa de vulnerabilidades + dado pessoal em PoCs.
+# Ficam só localmente, nunca no repositório.
+AUDITORIA-*.md
+PLAYBOOK-AUDITORIA.md
