@@ -65,7 +65,7 @@ export function LojaGrid({ items }: { items: LojaItem[] }) {
               )}
             </div>
             <h3 className="font-heading text-lg leading-snug text-foreground">{item.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
               {item.description}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
