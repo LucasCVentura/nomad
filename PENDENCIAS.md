@@ -3,11 +3,12 @@
 Revisão feita em **31/07/2026**, depois da entrega do leitor de PDF com grifo
 e anotações persistentes.
 
-> **Status (31/07/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6, 8 e 9.
-> Só resta o item **7** (recuperação de senha), aguardando o domínio para ter
-> um e-mail próprio. O pagamento entrou em 31/07/2026 e o acesso agora só sai
-> mediante cobrança confirmada — ainda em **sandbox**; ver "Virar para
-> produção" no fim do arquivo.
+> **Status (05/08/2026):** resolvidos os itens 1, 2a, 3, 4, 5, 6, 8 e 9. O
+> pagamento está em **produção**, verificado com uma cobrança real por Pix:
+> caiu na conta da Asaas e o acesso ao conteúdo foi liberado automaticamente
+> pelo webhook. Domínio próprio (`www.manualnf.com.br`) também já está no ar.
+> Só resta o item **7** (recuperação de senha), que o domínio novo já
+> desbloqueia — ver a seção dele.
 
 Cada item tem: o que é, como foi constatado, a causa e o caminho de correção.
 Ordenado por urgência, não por esforço.
@@ -286,6 +287,13 @@ Não há nenhuma tela nem chamada de `resetPasswordForEmail` no projeto. Se uma
 aluna esquecer a senha, não há saída pela interface. Já estava listado como
 pendência no resumo entregue à Dra.
 
+**Desbloqueado em 05/08/2026**: o domínio `www.manualnf.com.br` já está no
+ar, que era o motivo de estar parado (precisava de um remetente de e-mail
+próprio). Falta implementar a tela e, no Supabase, configurar Authentication
+→ URL Configuration → Site URL para o domínio novo, e opcionalmente um SMTP
+próprio (Resend/SendGrid) em Authentication → Emails para o e-mail não sair
+do remetente genérico do Supabase.
+
 ### 8. Nenhum limite de tamanho ou de páginas no PDF
 
 - [x] ~~Validar antes de converter~~ — **resolvido em 31/07/2026**
@@ -351,24 +359,42 @@ reverter o estado local e avisar quando a gravação falhar.
 
 ## Virar o pagamento para produção
 
-O fluxo está validado ponta a ponta, mas apontando para o **sandbox** do
-Asaas. Para começar a cobrar de verdade, três passos — nenhum mexe em código:
+- [x] ~~Sandbox → produção~~ — **resolvido em 05/08/2026**
 
-1. **Chave de produção**: no painel real do Asaas (a conta da Dra.), menu do
-   usuário → Integrações → gerar chave. Trocar `ASAAS_API_KEY` na Vercel.
-   Cola o valor **como veio**, começando com `$` e sem barra invertida — a
-   barra é só no `.env.local` da máquina, por causa da expansão de variáveis
-   que o Next faz nos arquivos `.env`.
-2. **`ASAAS_ENV=production`** na Vercel. É o que troca a URL da API; sem
-   isso a chave de produção seria enviada para o sandbox e recusada.
-3. **Webhook no painel de produção**, com os mesmos dados do sandbox:
-   `https://nomad-navy.vercel.app/api/webhooks/asaas`, v3, não sequencial,
-   fila de sincronização **ativada**, e o mesmo `ASAAS_WEBHOOK_TOKEN`.
-   Eventos: `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, e os de cancelamento/
-   estorno (`PAYMENT_DELETED`, `PAYMENT_REFUNDED`,
-   `PAYMENT_CHARGEBACK_REQUESTED`).
+> **Verificado:** cobrança real por Pix, confirmada na conta da Asaas,
+> webhook liberou o conteúdo automaticamente — sem intervenção manual.
 
-Depois disso, redeploy — variável nova só vale em build novo.
+Os três passos originais (chave de produção, `ASAAS_ENV=production`, webhook
+no painel de produção apontando para `https://www.manualnf.com.br/api/webhooks/asaas`)
+foram feitos sem mexer em código. Mas dois bugs reais apareceram no caminho,
+ambos específicos de ambiente de produção — vale saber que existem, caso
+outro ambiente seja criado no futuro (staging, por exemplo):
+
+**1. Login quebrado — variáveis `NEXT_PUBLIC_*` marcadas como "Sensitive" na
+Vercel.** Esse modo restringe a variável a leitura em *runtime*; variáveis
+`NEXT_PUBLIC_*` precisam existir no *build*, para irem embutidas no
+JavaScript do navegador. Com o modo ativado, elas saíam vazias do build, e o
+login tentava chamar `/auth/v1/token` no próprio domínio do site em vez do
+Supabase — dando 404, que a tela mostrava como "e-mail ou senha incorretos"
+(o catch de erro em `src/app/entrar/page.tsx` não distingue a causa).
+Corrigido recriando `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+como não-sensíveis (`vercel env add ... --no-sensitive`) — são valores
+públicos por definição, não há motivo para marcá-las como sensíveis. Vale
+conferir isso em qualquer variável `NEXT_PUBLIC_*` nova.
+
+**2. Pix não aparecia no checkout, e "Customer inválido" ao pagar.** Duas
+causas empilhadas, ambas por reaproveitar estado do sandbox:
+- `profiles.asaas_customer_id` guardava o ID de cliente criado no sandbox,
+  que não existe na conta de produção (contas diferentes = clientes
+  diferentes). O checkout reusava esse ID em vez de criar um novo
+  (`src/app/api/checkout/route.ts:130`). Corrigido limpando o campo na conta
+  de teste — o checkout recria o cliente sozinho quando o campo está vazio.
+- O checkout também **reaproveita pedidos `pending` com os mesmos itens**
+  (`route.ts:114`, a proteção contra cobrança duplicada) — então, mesmo
+  depois de cadastrar a chave Pix na Asaas, o checkout continuava devolvendo
+  uma cobrança *já criada* antes da chave existir, sem Pix. Corrigido
+  cancelando os pedidos pendentes travados; qualquer pedido "pending" antigo
+  numa conta pode mascarar uma mudança de configuração da mesma forma.
 
 **Se um dia alguém pagar e o acesso não sair**, o primeiro lugar a olhar é a
 fila do webhook no painel do Asaas: depois de 15 falhas seguidas ela pausa
