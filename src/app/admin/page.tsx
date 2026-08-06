@@ -10,7 +10,7 @@ function formatCurrency(value: number) {
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
-  const [studentsRes, publishedRes, salesRes, purchasesWithPrice, recentRes] =
+  const [studentsRes, publishedRes, salesRes, revenueRes, recentRes] =
     await Promise.all([
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase
@@ -18,7 +18,9 @@ export default async function AdminDashboardPage() {
         .select("*", { count: "exact", head: true })
         .eq("status", "published"),
       supabase.from("purchases").select("*", { count: "exact", head: true }),
-      supabase.from("purchases").select("contents(price)"),
+      // Soma a receita no banco (admin_total_revenue) em vez de baixar toda
+      // compra e somar em JS — o count acima já é feito no banco com head:true.
+      supabase.rpc("admin_total_revenue"),
       supabase
         .from("purchases")
         .select("user_id, purchased_at, profiles(name), contents(title, price)")
@@ -26,10 +28,7 @@ export default async function AdminDashboardPage() {
         .limit(6),
     ]);
 
-  const revenue = (purchasesWithPrice.data ?? []).reduce(
-    (sum, row) => sum + (row.contents?.price ?? 0),
-    0
-  );
+  const revenue = Number(revenueRes.data ?? 0);
 
   const stats = [
     {

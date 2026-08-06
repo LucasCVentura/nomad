@@ -492,6 +492,58 @@ begin
 end;
 $$;
 
+-- Agregações do painel admin, feitas no banco (auditoria de performance,
+-- 06/08/2026). Antes, três telas baixavam tabelas inteiras para o servidor e
+-- somavam/contavam em JS — o total de não-lidas, que re-executa a cada
+-- mensagem via Realtime, era o pior. Estas devolvem só o resultado. São
+-- admin-only pela checagem interna de is_admin(): quem não é admin recebe
+-- zero/vazio mesmo chamando via RPC.
+create or replace function public.admin_unread_total()
+returns integer language sql security definer set search_path = public stable
+as $$
+  select count(*)::integer
+  from public.conversation_messages m
+  join public.conversations c on c.id = m.conversation_id
+  where public.is_admin()
+    and m.sender_id = c.user_id
+    and m.created_at > c.admin_last_read_at;
+$$;
+
+create or replace function public.admin_inbox_rows()
+returns table (
+  id uuid, student_name text, content_title text, category text,
+  last_message_body text, last_message_at timestamptz, unread integer
+)
+language sql security definer set search_path = public stable
+as $$
+  select
+    c.id, coalesce(p.name, 'Aluna'), coalesce(ct.title, ''),
+    coalesce(ct.category, ''), lm.body, lm.created_at, coalesce(uc.unread, 0)::integer
+  from public.conversations c
+  left join public.profiles p on p.id = c.user_id
+  left join public.contents ct on ct.id = c.content_id
+  left join lateral (
+    select body, created_at from public.conversation_messages
+    where conversation_id = c.id order by created_at desc limit 1
+  ) lm on true
+  left join lateral (
+    select count(*) as unread from public.conversation_messages
+    where conversation_id = c.id and sender_id = c.user_id
+      and created_at > c.admin_last_read_at
+  ) uc on true
+  where public.is_admin() and lm.created_at is not null
+  order by lm.created_at desc;
+$$;
+
+create or replace function public.admin_total_revenue()
+returns numeric language sql security definer set search_path = public stable
+as $$
+  select coalesce(sum(ct.price), 0)
+  from public.purchases pu
+  join public.contents ct on ct.id = pu.content_id
+  where public.is_admin();
+$$;
+
 create table if not exists public.conversation_messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations (id) on delete cascade,

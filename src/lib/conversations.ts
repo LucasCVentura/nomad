@@ -11,45 +11,21 @@ export type AdminInboxRow = {
   unread: number;
 };
 
+// Uma linha por conversa, agregada no banco (função admin_inbox_rows). Antes
+// isto baixava TODAS as mensagens da plataforma e montava as linhas em JS —
+// ~355 kB e 5.000 objetos com 5.000 mensagens de teste, a cada abertura da
+// caixa de entrada. Agora o Postgres devolve só as linhas prontas.
 export async function getAdminInboxRows(supabase: SupabaseClient<Database>): Promise<AdminInboxRow[]> {
-  const [{ data: conversations }, { data: messages }] = await Promise.all([
-    supabase
-      .from("conversations")
-      .select("id, user_id, admin_last_read_at, profiles(name), contents(title, category)"),
-    supabase
-      .from("conversation_messages")
-      .select("id, conversation_id, sender_id, body, created_at")
-      .order("created_at", { ascending: false }),
-  ]);
-
-  const byConversation = new Map<string, typeof messages>();
-  for (const m of messages ?? []) {
-    const list = byConversation.get(m.conversation_id) ?? [];
-    list.push(m);
-    byConversation.set(m.conversation_id, list);
-  }
-
-  const rows = (conversations ?? [])
-    .map((c) => {
-      const convMessages = byConversation.get(c.id) ?? [];
-      const last = convMessages[0] ?? null;
-      const unread = convMessages.filter(
-        (m) => m.sender_id === c.user_id && m.created_at > c.admin_last_read_at
-      ).length;
-      return {
-        id: c.id,
-        studentName: c.profiles?.name ?? "Aluna",
-        contentTitle: c.contents?.title ?? "",
-        category: c.contents?.category ?? "",
-        lastMessageBody: last?.body ?? null,
-        lastMessageAt: last?.created_at ?? null,
-        unread,
-      };
-    })
-    .filter((r) => r.lastMessageAt !== null)
-    .sort((a, b) => (a.lastMessageAt! < b.lastMessageAt! ? 1 : -1));
-
-  return rows;
+  const { data } = await supabase.rpc("admin_inbox_rows");
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    studentName: r.student_name ?? "Aluna",
+    contentTitle: r.content_title ?? "",
+    category: r.category ?? "",
+    lastMessageBody: r.last_message_body,
+    lastMessageAt: r.last_message_at,
+    unread: r.unread ?? 0,
+  }));
 }
 
 export async function getConversationUnreadForUser(
@@ -68,19 +44,11 @@ export async function getConversationUnreadForUser(
   ).length;
 }
 
+// Total de não-lidas somado no banco (função admin_unread_total). Isto roda no
+// layout do admin e re-executa a cada mensagem nova via Realtime, então era o
+// pior dos três: baixava o histórico inteiro de mensagens toda vez. Agora é um
+// count que devolve um número.
 export async function getAdminUnreadTotal(supabase: SupabaseClient<Database>) {
-  const [{ data: conversations }, { data: messages }] = await Promise.all([
-    supabase.from("conversations").select("id, user_id, admin_last_read_at"),
-    supabase.from("conversation_messages").select("conversation_id, sender_id, created_at"),
-  ]);
-
-  const byId = new Map((conversations ?? []).map((c) => [c.id, c]));
-  let total = 0;
-  for (const m of messages ?? []) {
-    const conv = byId.get(m.conversation_id);
-    if (conv && m.sender_id === conv.user_id && m.created_at > conv.admin_last_read_at) {
-      total++;
-    }
-  }
-  return total;
+  const { data } = await supabase.rpc("admin_unread_total");
+  return data ?? 0;
 }

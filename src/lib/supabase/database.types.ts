@@ -439,6 +439,20 @@ export type Database = {
       }
     }
     Functions: {
+      admin_inbox_rows: {
+        Args: never
+        Returns: {
+          id: string
+          student_name: string
+          content_title: string
+          category: string
+          last_message_body: string | null
+          last_message_at: string | null
+          unread: number
+        }[]
+      }
+      admin_total_revenue: { Args: never; Returns: number }
+      admin_unread_total: { Args: never; Returns: number }
       has_content_access: { Args: { cid: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       mark_conversation_read: { Args: { cid: string }; Returns: undefined }
