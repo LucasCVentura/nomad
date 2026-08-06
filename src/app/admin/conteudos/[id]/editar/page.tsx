@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { signPageUrls } from "@/lib/content-media";
+import { signContentUrls } from "@/lib/content-media";
 import { EditContentForm } from "@/components/admin/edit-content-form";
 import type { ContentBlock } from "@/lib/supabase/types";
 
@@ -33,7 +33,7 @@ export default async function EditarConteudoPage({
   // Signed links for the thumbnails only. The form keeps the stored paths, so
   // saving can't write an expiring URL back into the content.
   const blocks = content.body as ContentBlock[];
-  const signed = await signPageUrls(supabase, blocks);
+  const signed = await signContentUrls(supabase, blocks);
   const previewUrls: Record<string, string> = {};
   blocks.forEach((block, i) => {
     const after = signed[i];

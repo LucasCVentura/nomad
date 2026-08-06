@@ -18,11 +18,12 @@ auditoria de leitura de código, mas requisição real contra a API pública.
 | 2 | 🟠 Alto | Qualquer aluna logada lia e-mail + CPF de todas as outras | Corrigido e reverificado |
 | 3 | 🟡 Baixo | Anotação gravável em conteúdo não comprado | Corrigido |
 | 4 | 🟡 Baixo | Faltavam cabeçalhos de segurança (clickjacking etc.) | Corrigido |
-| 5 | 🔵 Observação | `content-videos` é bucket público | Aberto — ver abaixo |
-| 6 | 🔵 Observação | `NEXT_PUBLIC_SITE_URL` não definida em produção | Aberto — ver abaixo |
+| 5 | 🟠 Alto (latente) | `content-videos` era bucket público | Corrigido e reverificado |
+| 6 | 🟡 Baixo | `NEXT_PUBLIC_SITE_URL` não definida em produção | Corrigido |
 
-Correções de banco em `supabase/patches/2026-08-06-auditoria-seguranca.sql`,
-já aplicadas em produção e incorporadas ao `schema.sql`.
+Correções de banco em `supabase/patches/2026-08-06-auditoria-seguranca.sql` e
+`supabase/patches/2026-08-06-videos-privados.sql`, ambas já aplicadas em
+produção e incorporadas ao `schema.sql`. **Nenhum item ficou em aberto.**
 
 ---
 
@@ -125,21 +126,35 @@ runtime, então uma CSP útil exigiria nonce em toda a árvore. A parte que
 protege contra clickjacking (`frame-ancestors`) está coberta pelo
 X-Frame-Options.
 
-## 5. 🔵 Observação — `content-videos` é bucket público
+## 5. 🟠 Alto (latente) — vídeo de curso era público
 
-Vídeo anexado a um curso é **produto pago**, mas o bucket está marcado como
-público, com policy `Public read of content videos` sem nenhuma checagem de
-compra.
+Vídeo anexado a um curso é **produto pago**, mas o bucket estava marcado como
+público, com uma policy `Public read of content videos` sem nenhuma checagem de
+compra. O argumento registrado no schema era "a URL não circula fora do
+conteúdo" — que não se sustenta: a pasta do arquivo é o **slug**, que é
+público, então o endereço era adivinhável.
 
-**Hoje não há vazamento: o bucket está vazio.** É risco latente — vira
-vazamento real no dia em que a Dra. anexar o primeiro vídeo a um curso.
+**Não houve vazamento: o bucket estava vazio.** Era risco latente, que viraria
+vazamento real no primeiro vídeo anexado. Corrigido antes disso.
 
-Corrigir **antes** do primeiro upload de vídeo, seguindo o padrão que
-`content-pages` já usa (bucket privado + URL assinada gerada no servidor após
-checar a compra). Deixei sem mexer agora porque a correção envolve mudar o
-código que gera as URLs de vídeo, e não quis embutir isso numa auditoria.
+**Correção.** O bucket passou a privado e ganhou a mesma policy de
+`content-pages` (comprou ou é admin). No código, `uploadVideoAttachments`
+passou a guardar o **caminho** em vez de um link público, e a antiga
+`signPageUrls` virou `signContentUrls`, assinando páginas e vídeos — cada um no
+seu bucket, porque são separados.
 
-## 6. 🔵 Observação — `NEXT_PUBLIC_SITE_URL` não definida
+Junto veio uma inconsistência que teria quebrado a policy: a tela de criação
+usava o slug como pasta e a de **edição usava o id**. O código foi padronizado
+no slug, e a policy aceita as duas formas para nenhum vídeo ficar ilegível por
+um detalhe de rota.
+
+**Reverificado com um vídeo real** subido só para o teste e removido depois.
+Sem login: URL pública direta, download e geração de URL assinada devolveram
+todos **HTTP 400**, e a listagem do bucket veio vazia. Com a RLS aplicada de
+verdade no Postgres: quem comprou vê **1** arquivo, quem não comprou vê **0**,
+a Dra. vê **1**.
+
+## 6. 🟡 Baixo — `NEXT_PUBLIC_SITE_URL` não definida
 
 O checkout monta a URL de retorno assim
 (`src/app/api/checkout/route.ts:176`):
@@ -148,13 +163,13 @@ O checkout monta a URL de retorno assim
 successUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin}/app/pedidos`
 ```
 
-A variável **não está definida em produção**, então sempre cai no fallback, que
-deriva do host da requisição. Funciona porque a Vercel entrega o host certo, e
-o impacto é baixo (é só o redirecionamento pós-pagamento, o webhook é quem
-libera o acesso de verdade). Mas é uma dependência silenciosa de algo que vem
-do cliente. Definir `NEXT_PUBLIC_SITE_URL=https://www.manualnf.com.br` remove a
-ambiguidade — vale fazer de qualquer forma, já estava pendente desde a virada
-para o domínio próprio.
+A variável não estava definida em produção, então sempre caía no fallback, que
+deriva do host da requisição. Funcionava porque a Vercel entrega o host certo, e
+o impacto era baixo (é só o redirecionamento pós-pagamento; quem libera o acesso
+é o webhook). Mas é uma dependência silenciosa de algo que vem de fora.
+
+**Correção.** `NEXT_PUBLIC_SITE_URL=https://www.manualnf.com.br` definida no
+ambiente de produção da Vercel.
 
 ---
 
@@ -214,4 +229,7 @@ seguir valendo: Supabase → Settings → Database → Reset database password.
 **Rotacionar a chave de API do Asaas de produção**, pelo mesmo motivo, se em
 algum momento ela foi copiada para fora do painel.
 
-**Antes do primeiro vídeo**, resolver o item 5.
+**Storage:** `content-images` segue público de propósito — guarda capa de
+curso e imagens que aparecem na loja para quem ainda não comprou. Se um dia
+uma imagem virar parte do material pago, ela precisa ir para `content-pages`,
+não para lá.

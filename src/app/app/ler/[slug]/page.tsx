@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ReaderView } from "@/components/reader/reader-view";
 import { createClient } from "@/lib/supabase/server";
-import { signPageUrls } from "@/lib/content-media";
+import { signContentUrls } from "@/lib/content-media";
 import type { ContentBlock } from "@/lib/supabase/types";
 import {
   buildParagraphTextMap,
@@ -132,7 +132,7 @@ export default async function LerPage({
 
   // The page images live in a private bucket, so they're paths in the stored
   // body — signed here, per request, for whoever just proved she has access.
-  const blocks = await signPageUrls(supabase, row.body as ContentBlock[]);
+  const blocks = await signContentUrls(supabase, row.body as ContentBlock[]);
 
   // Offsets are re-checked against the current text on every load, so a
   // reconvert or an edit shifts the marks back into place instead of leaving

@@ -152,7 +152,7 @@ export function EditContentForm({
       // as-is was writing the whole course into the row as base64 — this is
       // the step the create flow always had and this one was missing.
       const storedBlocks = await uploadContentImages(supabase, slug, blocks);
-      const videoBlocks = await uploadVideoAttachments(supabase, contentId, videos);
+      const videoBlocks = await uploadVideoAttachments(supabase, slug, videos);
       const coverImageUrl = coverFile
         ? await uploadCoverImage(supabase, contentId, coverFile)
         : initial.coverImageUrl;

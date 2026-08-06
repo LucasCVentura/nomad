@@ -7,6 +7,7 @@ export type VideoAttachment =
   | { kind: "new"; file: File; caption?: string };
 
 export const PAGES_BUCKET = "content-pages";
+export const VIDEOS_BUCKET = "content-videos";
 
 // How long a rendered page image stays fetchable. Long enough to read a
 // course in one sitting; any reload re-signs from scratch.
@@ -64,30 +65,45 @@ export async function uploadContentImages(
  * Turns the stored paths back into fetchable links, right before render.
  * Blocks that already carry an absolute or inline URL (anything converted
  * before the move to storage) are passed through untouched.
+ *
+ * Páginas e vídeos vivem em buckets separados, então cada grupo é assinado no
+ * seu — assinar tudo no bucket errado devolveria link que não abre.
  */
-export async function signPageUrls(
+export async function signContentUrls(
   supabase: SupabaseClient<Database>,
   blocks: ContentBlock[]
 ): Promise<ContentBlock[]> {
-  const paths = blocks
-    .filter(
-      (b): b is Extract<ContentBlock, { type: "image" | "page" }> =>
-        (b.type === "image" || b.type === "page") &&
-        !b.url.startsWith("data:") &&
-        !b.url.startsWith("http")
-    )
-    .map((b) => b.url);
+  // Um caminho guardado nunca tem esquema; `data:` e `http` são conteúdo
+  // antigo, de antes da mudança para storage, e passam direto.
+  const isStoredPath = (url: string) =>
+    !url.startsWith("data:") && !url.startsWith("http");
 
-  if (paths.length === 0) return blocks;
+  const pagePaths = blocks
+    .filter((b) => (b.type === "image" || b.type === "page") && isStoredPath(b.url))
+    .map((b) => (b as Extract<ContentBlock, { type: "image" | "page" }>).url);
 
-  const { data } = await supabase.storage
-    .from(PAGES_BUCKET)
-    .createSignedUrls(paths, PAGE_URL_TTL_SECONDS);
+  const videoPaths = blocks
+    .filter((b) => b.type === "video" && isStoredPath(b.url))
+    .map((b) => (b as Extract<ContentBlock, { type: "video" }>).url);
 
-  const signed = new Map((data ?? []).map((r) => [r.path, r.signedUrl]));
+  if (pagePaths.length === 0 && videoPaths.length === 0) return blocks;
+
+  const [pages, videos] = await Promise.all([
+    pagePaths.length
+      ? supabase.storage.from(PAGES_BUCKET).createSignedUrls(pagePaths, PAGE_URL_TTL_SECONDS)
+      : Promise.resolve({ data: [] }),
+    videoPaths.length
+      ? supabase.storage.from(VIDEOS_BUCKET).createSignedUrls(videoPaths, PAGE_URL_TTL_SECONDS)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const signed = new Map(
+    [...(pages.data ?? []), ...(videos.data ?? [])].map((r) => [r.path, r.signedUrl])
+  );
 
   return blocks.map((block) =>
-    (block.type === "image" || block.type === "page") && signed.has(block.url)
+    (block.type === "image" || block.type === "page" || block.type === "video") &&
+    signed.has(block.url)
       ? { ...block, url: signed.get(block.url)! }
       : block
   );
@@ -108,6 +124,17 @@ export async function uploadCoverImage(
   return supabase.storage.from("content-images").getPublicUrl(path).data.publicUrl;
 }
 
+/**
+ * Sobe os vídeos e guarda o CAMINHO, não um link.
+ *
+ * O bucket é privado: vídeo anexado a um curso é o produto pago, e um link
+ * público seria adivinhável a partir do slug, que é público. Quem transforma
+ * o caminho em link é `signContentUrls`, na hora de renderizar, e só depois de
+ * a RLS confirmar a compra.
+ *
+ * `slug` (e não o id) é a pasta, igual em `uploadContentImages` — é o que a
+ * policy do bucket procura.
+ */
 export async function uploadVideoAttachments(
   supabase: SupabaseClient<Database>,
   slug: string,
@@ -123,11 +150,10 @@ export async function uploadVideoAttachments(
     const ext = video.file.name.split(".").pop() || "mp4";
     const path = `${slug}/video-${index++}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage
-      .from("content-videos")
+      .from(VIDEOS_BUCKET)
       .upload(path, video.file, { upsert: true });
     if (error) throw error;
-    const url = supabase.storage.from("content-videos").getPublicUrl(path).data.publicUrl;
-    blocks.push({ type: "video", url, caption: video.caption });
+    blocks.push({ type: "video", url: path, caption: video.caption });
   }
   return blocks;
 }

@@ -315,16 +315,18 @@ create policy "Users manage their own annotations"
 -- Storage ---------------------------------------------------------------------
 -- content-images: imagens extraídas dos PDFs e capas de curso, públicas
 -- (aparecem no leitor e na loja, inclusive pra quem não comprou ainda).
--- content-videos: vídeos anexados a um conteúdo, também públicos pelo mesmo
--- motivo — mesma lógica já aceita pras imagens (a URL não é divulgada fora
--- do conteúdo em si).
+-- content-videos: vídeos anexados a um conteúdo — PRIVADO. Já foi público,
+-- sob o argumento de que a URL não circula fora do conteúdo; a auditoria de
+-- 06/08/2026 derrubou o argumento: a pasta é o slug, que é público, então o
+-- endereço era adivinhável — e vídeo de curso é produto pago. Segue o mesmo
+-- desenho de content-pages: privado + URL assinada por leitura.
 -- content-pdfs: os PDFs originais enviados, privados (só a admin acessa).
 insert into storage.buckets (id, name, public)
 values ('content-images', 'content-images', true)
 on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('content-videos', 'content-videos', true, 524288000)
+values ('content-videos', 'content-videos', false, 524288000)
 on conflict (id) do nothing;
 
 -- Tetos por arquivo: o mesmo limite que o app aplica antes de converter, para
@@ -358,9 +360,27 @@ create policy "Only admin can delete content images"
   on storage.objects for delete
   using (bucket_id = 'content-images' and public.is_admin());
 
-create policy "Public read of content videos"
+-- O `or c.id::text` cobre vídeos salvos sob o id do conteúdo: a tela de edição
+-- usava essa convenção enquanto a de criação usava o slug. O código foi
+-- padronizado no slug, mas aceitar as duas evita vídeo ilegível por isso.
+create policy "Buyers and admin can read content videos"
   on storage.objects for select
-  using (bucket_id = 'content-videos');
+  using (
+    bucket_id = 'content-videos'
+    and (
+      public.is_admin()
+      or exists (
+        select 1
+        from public.purchases p
+        join public.contents c on c.id = p.content_id
+        where p.user_id = auth.uid()
+          and (
+            c.slug = split_part(storage.objects.name, '/', 1)
+            or c.id::text = split_part(storage.objects.name, '/', 1)
+          )
+      )
+    )
+  );
 
 create policy "Only admin can upload content videos"
   on storage.objects for insert
