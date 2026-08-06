@@ -536,3 +536,50 @@ alter publication supabase_realtime add table public.conversation_messages;
 -- react live: new messages bump them, and admin_last_read_at updates (from
 -- opening a thread) clear them, without a page reload.
 alter publication supabase_realtime add table public.conversations;
+
+-- Freio de escrita (anti-flood) --------------------------------------------
+-- As escritas da aluna vão do navegador direto ao PostgREST, sem passar pelo
+-- app, e a RLS controla QUEM escreve, não QUANTO. Sem isto, uma conta
+-- confirmada inseria centenas de anotações/mensagens por segundo e podia
+-- inflar o banco (auditoria de resiliência, 06/08/2026). O teto é por usuário
+-- e por minuto, com folga: um humano nunca alcança, um flood bate na hora.
+-- service_role não tem auth.uid(), então o webhook e o admin passam livres.
+create index if not exists annotations_user_created_idx
+  on public.annotations (user_id, created_at);
+create index if not exists conversation_messages_sender_created_idx
+  on public.conversation_messages (sender_id, created_at);
+
+create or replace function public.enforce_insert_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  limite   integer := coalesce((tg_argv[0])::integer, 120);
+  col_dono text    := tg_argv[1];
+  usuario  uuid    := auth.uid();
+  qtd      integer;
+begin
+  if usuario is null then
+    return new;
+  end if;
+  execute format(
+    'select count(*) from public.%I where %I = $1 and created_at > now() - interval ''1 minute''',
+    tg_table_name, col_dono
+  ) into qtd using usuario;
+  if qtd >= limite then
+    raise exception 'Muitos registros em pouco tempo. Aguarde um instante e tente de novo.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger annotations_rate_limit
+  before insert on public.annotations
+  for each row execute function public.enforce_insert_rate_limit('120', 'user_id');
+
+create trigger conversation_messages_rate_limit
+  before insert on public.conversation_messages
+  for each row execute function public.enforce_insert_rate_limit('60', 'sender_id');
