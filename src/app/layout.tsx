@@ -30,6 +30,11 @@ const jost = Jost({
 });
 
 export const metadata: Metadata = {
+  // Sem isso o Next gera a URL da imagem de opengraph-image/twitter-image como
+  // caminho relativo — o crawler do WhatsApp/Telegram não tem como resolver
+  // isso contra origem nenhuma, então o preview do link simplesmente não
+  // mostra imagem.
+  metadataBase: new URL("https://www.manualnf.com.br"),
   title: "Manual NF — Estética & Beleza",
   description:
     "Materiais de estudo em estética profissional escritos pela Dra. Nathalia, com chat direto pra tirar dúvidas.",
